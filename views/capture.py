@@ -38,6 +38,8 @@ def _clear_all_inputs() -> None:
     # Reset ID field to empty (don't pop — we always read it via _cap_id_val)
     st.session_state._cap_id_val = ""
     st.session_state.pop("cap_email_draft", None)
+    st.session_state.pop("cap_pdf_bytes", None)
+    st.session_state.pop("cap_pdf_title", None)
 
 
 def render() -> None:
@@ -232,22 +234,27 @@ def render() -> None:
             action_card(a)
 
         # ── Download PDF ──────────────────────────────────────────────
-        try:
-            from utils.export import generate_meeting_pdf
-            _pdf_record = _build_meeting_record(pending)
-            _pdf_bytes  = generate_meeting_pdf(_pdf_record)
-            _safe_title = "".join(
-                c for c in (result.get("title") or "meeting") if c.isalnum() or c in " _-"
-            )[:40].strip()
+        # Cache PDF bytes in session_state so the download button always has data
+        if "cap_pdf_bytes" not in st.session_state:
+            try:
+                from utils.export import generate_meeting_pdf
+                _pdf_record = _build_meeting_record(pending)
+                st.session_state.cap_pdf_bytes = generate_meeting_pdf(_pdf_record)
+                st.session_state.cap_pdf_title = "".join(
+                    c for c in (result.get("title") or "meeting") if c.isalnum() or c in " _-"
+                )[:40].strip()
+            except Exception as _e:
+                st.session_state.cap_pdf_bytes = b""
+                st.caption(f"PDF generation failed: {_e}")
+
+        if st.session_state.get("cap_pdf_bytes"):
             st.download_button(
                 label="⬇ Download Brief (PDF)",
-                data=_pdf_bytes,
-                file_name=f"{_safe_title}.pdf",
+                data=st.session_state.cap_pdf_bytes,
+                file_name=f"{st.session_state.get('cap_pdf_title', 'meeting')}.pdf",
                 mime="application/pdf",
                 key="cap_dl_pdf",
             )
-        except Exception:
-            pass
 
         col_save, col_discard = st.columns(2)
         with col_save:
