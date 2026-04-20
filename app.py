@@ -17,7 +17,7 @@ from ui.styles import inject_css
 # ------------------------------------------------------------------
 # Page setup  (must be the very first Streamlit call)
 # ------------------------------------------------------------------
-st.set_page_config(page_title="AI Meeting Insight Generator", page_icon="🧠", layout="wide")
+st.set_page_config(page_title="AI-Powered Meeting Insight Generator and Action Tracker", page_icon="🧠", layout="wide")
 inject_css()
 
 
