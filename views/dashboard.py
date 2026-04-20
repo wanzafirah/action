@@ -112,8 +112,11 @@ def _render_upcoming(meetings: list) -> None:
         if normalize_status(a) not in ("Done", "Cancelled")
     )
 
-    alert_badge = f"  🔴 {total_alerts} need attention" if total_alerts else "  ✅ All clear"
-    st.markdown(f"#### Upcoming Tasks{alert_badge}")
+    st.markdown("#### Upcoming Tasks")
+    if total_alerts:
+        st.caption(f"🔴 {total_alerts} item(s) need attention")
+    else:
+        st.caption("✅ All clear")
 
     if not active:
         st.info("No pending actions. Add a meeting in Capture to see it here.")
