@@ -50,6 +50,11 @@ DEFAULT_DEPARTMENTS = [
     "Graduate & emerging talent",
     "School Talent",
     "MyMahir",
+    "Women, DEI & work-life practices",
+    "MyHeart facilitation",
+    "MyHeart Network",
+    "MYXpats operations",
+    "Residence Pass talent",
 ]
 
 # ------------------------------------------------------------------
