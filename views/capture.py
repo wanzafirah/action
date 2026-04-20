@@ -55,28 +55,31 @@ def render() -> None:
         activity_type = st.selectbox("Meeting type", ACTIVITY_TYPE_OPTIONS, key="cap_type")
         organization_type = st.selectbox("Organization type", ORGANIZATION_TYPE_OPTIONS, key="cap_org")
 
-        # Activity ID — starts empty; user types their own or clicks Generate.
-        # Uses shadow key _cap_id_val to avoid writing to a widget key after render.
-        if "_cap_id_val" not in st.session_state:
-            st.session_state._cap_id_val = ""   # empty by default
+    # ----- Activity ID — own full-width row to avoid nested-column button issues -----
+    if "_cap_id_val" not in st.session_state:
+        st.session_state._cap_id_val = ""   # starts empty; user types or generates
 
-        id_col, btn_col = st.columns([3, 1])
-        with id_col:
-            activity_id = st.text_input(
-                "Activity ID",
-                value=st.session_state._cap_id_val,
-                placeholder="Type your ID or click Generate →",
-                key="cap_activity_id",
-            )
-        with btn_col:
-            # Use write("") to push the button down to input level without HTML
-            st.write("")
-            if st.button("Generate ID", key="cap_gen_id", use_container_width=True):
-                st.session_state._cap_id_val = generate_activity_id(
-                    category, meeting_date, meetings
-                )
-                st.session_state.pop("cap_activity_id", None)
-                st.rerun()
+    def _gen_id_callback():
+        """on_click runs BEFORE re-render so the widget key can be safely deleted."""
+        from datetime import date as _date
+        cat  = st.session_state.get("cap_category", "Internal Meeting")
+        dt   = st.session_state.get("cap_date", _date.today())
+        mtgs = st.session_state.get("meetings", [])
+        st.session_state._cap_id_val = generate_activity_id(cat, dt, mtgs)
+        st.session_state.pop("cap_activity_id", None)   # force re-init from value=
+
+    id_col, btn_col = st.columns([4, 1])
+    with id_col:
+        activity_id = st.text_input(
+            "Activity ID",
+            value=st.session_state._cap_id_val,
+            placeholder="Type your own ID, or click Generate ID →",
+            key="cap_activity_id",
+        )
+    with btn_col:
+        st.write("")   # label-height spacer
+        st.button("Generate ID", key="cap_gen_id",
+                  on_click=_gen_id_callback, use_container_width=True)
 
     departments = st.multiselect("Departments involved", DEFAULT_DEPARTMENTS, key="cap_depts")
     updated_by = st.text_input("Report by", key="cap_updated_by")
