@@ -10,7 +10,7 @@ import streamlit as st
 
 from core.database import load_all
 from ui import sidebar
-from views import capture, dashboard, history, tracker
+from views import analytics, capture, dashboard, history, people, tracker
 from ui.styles import inject_css
 
 
@@ -49,6 +49,8 @@ PAGES = {
     "Capture":   capture.render,
     "Tracker":   tracker.render,
     "History":   history.render,
+    "People":    people.render,
+    "Analytics": analytics.render,
 }
 
 current = st.session_state.get("current_page", "Dashboard")
