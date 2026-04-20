@@ -11,7 +11,7 @@ from ui.components import (
     kpi_card,
     kpi_wide,
 )
-from utils.formatters import get_digest_items, get_upcoming_meetings
+from utils.formatters import get_all_active_meetings
 from utils.helpers import (
     normalize_status,
     normalize_value,
@@ -28,8 +28,6 @@ def render() -> None:
 
     with main_col:
         _render_kpis(meetings)
-        st.markdown("<div style='height:0.75rem'></div>", unsafe_allow_html=True)
-        _render_digest(meetings)
         st.markdown("<div style='height:0.75rem'></div>", unsafe_allow_html=True)
         _render_upcoming(meetings)
 
@@ -68,82 +66,34 @@ def _render_kpis(meetings: list) -> None:
 
 
 # ------------------------------------------------------------------
-# Daily Digest — smart nudge summary, no email needed
-# ------------------------------------------------------------------
-def _render_digest(meetings: list) -> None:
-    digest = get_digest_items(meetings)
-    total_alerts = sum(len(v) for v in digest.values())
-
-    with st.expander(
-        f"📋 Today's Action Digest  {'🔴 ' + str(total_alerts) + ' items need attention' if total_alerts else '✅ All clear'}",
-        expanded=total_alerts > 0,
-    ):
-        if total_alerts == 0:
-            st.markdown(
-                "<div class='digest-empty'>🎉 No urgent items today. Great job keeping up!</div>",
-                unsafe_allow_html=True,
-            )
-            return
-
-        sections = [
-            ("overdue",   "🔴",  "red",    "Overdue"),
-            ("due_today", "🔔",  "amber",  "Due Today"),
-            ("due_3days", "⚡",  "amber",  "Due Within 3 Days"),
-            ("due_week",  "🕐",  "blue",   "Due This Week"),
-            ("stale",     "⏳",  "purple", "Long Pending (14+ days)"),
-        ]
-
-        for key, icon, colour, label in sections:
-            items = digest[key]
-            if not items:
-                continue
-
-            st.markdown(
-                f"<div class='digest-section-label {colour}'>{icon} {label} ({len(items)})</div>",
-                unsafe_allow_html=True,
-            )
-            for row in items:
-                dl = row["days_left"]
-                if dl is not None and dl < 0:
-                    badge_text = f"{abs(dl)}d overdue"
-                    badge_style = "background:#fee2e2;color:#991b1b"
-                elif dl == 0:
-                    badge_text = "Due today"
-                    badge_style = "background:#fef3c7;color:#92400e"
-                elif dl is not None:
-                    badge_text = f"{dl}d left"
-                    badge_style = "background:#eff6ff;color:#1e40af"
-                else:
-                    badge_text = f"{row['sitting_days']}d pending"
-                    badge_style = "background:#f3e8ff;color:#6b21a8"
-
-                owner_dept = row["owner"]
-                if row["department"] and row["department"] != "Not stated":
-                    owner_dept += f" · {row['department']}"
-
-                st.markdown(
-                    f"<div class='digest-row'>"
-                    f"<div>"
-                    f"<div class='digest-row-text'>{row['text']}</div>"
-                    f"<div class='digest-row-meta'>{row['meeting_title']} · {owner_dept}</div>"
-                    f"</div>"
-                    f"<span class='digest-row-badge' style='{badge_style}'>{badge_text}</span>"
-                    f"</div>",
-                    unsafe_allow_html=True,
-                )
-
-
-# ------------------------------------------------------------------
-# Upcoming tasks — show only meeting title; expand to see full details
+# Unified Upcoming Tasks + Nudge Alerts
 # ------------------------------------------------------------------
 def _render_upcoming(meetings: list) -> None:
-    st.markdown("#### Upcoming tasks")
-    upcoming = get_upcoming_meetings(meetings, limit=5)
-    if not upcoming:
-        st.info("No pending deadlines. Add a meeting in Capture to see it here.")
+    """Show ALL meetings with any pending/in-progress/overdue actions.
+
+    Each expander shows the meeting title. Inside, action cards carry
+    coloured nudge badges (overdue, due soon, long-pending) so the digest
+    and upcoming views are merged into one place.
+    """
+    active = get_all_active_meetings(meetings)
+
+    # Count how many alerts exist across all meetings
+    from utils.helpers import nudge_flags
+    total_alerts = sum(
+        len(nudge_flags(a, normalize_value(m.get("date"), "")))
+        for m in active
+        for a in (m.get("actions") or [])
+        if normalize_status(a) not in ("Done", "Cancelled")
+    )
+
+    alert_badge = f"  🔴 {total_alerts} need attention" if total_alerts else "  ✅ All clear"
+    st.markdown(f"#### Upcoming Tasks{alert_badge}")
+
+    if not active:
+        st.info("No pending actions. Add a meeting in Capture to see it here.")
         return
 
-    for m in upcoming:
+    for m in active:
         title = normalize_value(m.get("title"), "Untitled meeting")
         meeting_date = normalize_value(m.get("date"), "")
         label = f"{title}  ·  {meeting_date}" if meeting_date else title
@@ -197,23 +147,18 @@ def _render_chatbot(meetings: list) -> None:
     st.session_state.chat_user_id = user_id.strip()
 
     if not st.session_state.chat_user_id:
+        # User cleared their ID — wipe the current session so next login starts fresh
+        st.session_state.pop("dashboard_chat_messages", None)
+        st.session_state.pop("dashboard_chat_session_id", None)
         st.caption("Your chat history is private — only visible when this ID is entered.")
         return
 
-    # Per-session in-memory messages (NOT loaded from DB so it starts fresh)
+    # Start a fresh session each time this ID is entered for the first time
     if "dashboard_chat_messages" not in st.session_state:
         st.session_state.dashboard_chat_messages = []
         st.session_state.dashboard_chat_session_id = uid()
 
     messages = st.session_state.dashboard_chat_messages
-
-    # New Chat button
-    top_l, top_r = st.columns([3, 1])
-    with top_r:
-        if st.button("New Chat", key="chat_new_session", use_container_width=True):
-            st.session_state.dashboard_chat_messages = []
-            st.session_state.dashboard_chat_session_id = uid()
-            st.rerun()
 
     # Message thread
     container = st.container(height=300)
