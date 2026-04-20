@@ -14,7 +14,7 @@ NAV_ITEMS = [
 def render() -> None:
     with st.sidebar:
         st.markdown(
-            "<div class='sidebar-title'>AI-Powered Meeting Insight Generator</div>",
+            "<div class='sidebar-title'>AI-Powered Meeting Insight Generator and Action Tracker</div>",
             unsafe_allow_html=True,
         )
         st.markdown(
