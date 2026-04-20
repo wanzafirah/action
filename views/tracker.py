@@ -75,6 +75,34 @@ def _render_meeting(meeting: dict) -> None:
         f"**Department:** {normalize_value(meeting.get('deptName') or meeting.get('department'), 'Unassigned')}"
     )
 
+    # ── Smart Follow-Up Email button ─────────────────────────────────
+    meeting_id = normalize_value(meeting.get("id") or meeting.get("activityId"), "unknown")
+    email_key  = f"followup_email_{meeting_id}"
+    email_open = f"followup_open_{meeting_id}"
+
+    if st.button("📧 Generate Follow-Up Email", key=f"btn_email_{meeting_id}"):
+        if st.session_state.get(email_open):
+            st.session_state.pop(email_key, None)
+            st.session_state[email_open] = False
+        else:
+            with st.spinner("Drafting follow-up email…"):
+                try:
+                    from core.pipeline import generate_followup_email
+                    st.session_state[email_key] = generate_followup_email(meeting)
+                    st.session_state[email_open] = True
+                except Exception as exc:
+                    st.session_state[email_key] = f"Could not generate email: {exc}"
+                    st.session_state[email_open] = True
+            st.rerun()
+
+    if st.session_state.get(email_open) and st.session_state.get(email_key):
+        st.text_area(
+            "Follow-up email draft (copy to send)",
+            value=st.session_state[email_key],
+            height=280,
+            key=f"email_ta_{meeting_id}",
+        )
+
     actions = meeting.get("actions", []) or []
     if not actions:
         st.info("No action items for this meeting.")
