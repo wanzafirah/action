@@ -231,6 +231,24 @@ def render() -> None:
             a.setdefault("id", f"act-{uid()}-{idx}")
             action_card(a)
 
+        # ── Download PDF ──────────────────────────────────────────────
+        try:
+            from utils.export import generate_meeting_pdf
+            _pdf_record = _build_meeting_record(pending)
+            _pdf_bytes  = generate_meeting_pdf(_pdf_record)
+            _safe_title = "".join(
+                c for c in (result.get("title") or "meeting") if c.isalnum() or c in " _-"
+            )[:40].strip()
+            st.download_button(
+                label="⬇ Download Brief (PDF)",
+                data=_pdf_bytes,
+                file_name=f"{_safe_title}.pdf",
+                mime="application/pdf",
+                key="cap_dl_pdf",
+            )
+        except Exception:
+            pass
+
         col_save, col_discard = st.columns(2)
         with col_save:
             if st.button("Save meeting", type="primary", key="cap_save"):
