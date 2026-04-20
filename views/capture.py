@@ -28,7 +28,7 @@ def _clear_all_inputs() -> None:
     """Reset every capture form field back to defaults."""
     keys = [
         "cap_category", "cap_title", "cap_date", "cap_type", "cap_org",
-        "cap_activity_id", "cap_depts", "cap_updated_by", "cap_stakeholders",
+        "cap_activity_id", "_cap_id_val", "cap_depts", "cap_updated_by", "cap_stakeholders",
         "cap_mode", "cap_translate", "cap_audio_upload", "cap_audio_record",
         "cap_docs", "cap_transcript", "cap_transcript_editor",
         "pending_result",
@@ -56,19 +56,27 @@ def render() -> None:
         organization_type = st.selectbox("Organization type", ORGANIZATION_TYPE_OPTIONS, key="cap_org")
 
         # Activity ID row: input + Generate button side by side
+        # Use a separate shadow key (_cap_id_val) so we never write to the
+        # widget key after it has already rendered (Streamlit forbids that).
+        if "_cap_id_val" not in st.session_state:
+            st.session_state._cap_id_val = generate_activity_id(category, meeting_date, meetings)
+
         id_col, btn_col = st.columns([3, 1])
         with id_col:
             activity_id = st.text_input(
                 "Activity ID",
-                value=st.session_state.get("cap_activity_id")
-                      or generate_activity_id(category, meeting_date, meetings),
+                value=st.session_state._cap_id_val,
                 key="cap_activity_id",
             )
         with btn_col:
             st.markdown("<div style='height:1.75rem'></div>", unsafe_allow_html=True)
             if st.button("Generate ID", key="cap_gen_id", use_container_width=True):
-                new_id = generate_activity_id(category, meeting_date, meetings)
-                st.session_state.cap_activity_id = new_id
+                # Store new ID in shadow key, delete widget key so it
+                # re-initialises from value= on the next run.
+                st.session_state._cap_id_val = generate_activity_id(
+                    category, meeting_date, meetings
+                )
+                st.session_state.pop("cap_activity_id", None)
                 st.rerun()
 
     departments = st.multiselect("Departments involved", DEFAULT_DEPARTMENTS, key="cap_depts")
