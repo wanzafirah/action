@@ -200,6 +200,22 @@ section[data-testid="stSidebar"] .stButton > button {
     border-radius: 12px;
     padding: 0.55rem 0.9rem;
 }
+/* Download buttons — match primary button style with white text */
+[data-testid="stDownloadButton"] button,
+.stDownloadButton button,
+div[data-testid="stDownloadButton"] > button {
+    background: var(--brand) !important;
+    color: #ffffff !important;
+    border: none !important;
+    border-radius: 12px !important;
+    padding: 0.55rem 0.9rem !important;
+    font-weight: 700 !important;
+}
+[data-testid="stDownloadButton"] button *,
+.stDownloadButton button *,
+div[data-testid="stDownloadButton"] > button * {
+    color: #ffffff !important;
+}
 /* Form submit button (Ask / Generate brief) */
 .stForm [data-testid="stFormSubmitButton"] button,
 [data-testid="stFormSubmitButton"] button {
