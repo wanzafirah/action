@@ -141,7 +141,7 @@ section[data-testid="stSidebar"] .stButton > button {
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: 20px;
-    padding: 1.3rem 1.6rem;
+    padding: 1.6rem 2rem;
     margin-bottom: 1rem;
     display: flex;
     align-items: center;
@@ -227,6 +227,16 @@ section[data-testid="stSidebar"] .stButton > button {
     background: #ffffff !important;
     border: 1px dashed var(--border) !important;
     border-radius: 12px !important;
+}
+/* "Browse files" / upload button — white text on dark background */
+.stFileUploader [data-testid="stFileUploaderDropzone"] button,
+.stFileUploader button[kind="secondary"],
+.stFileUploader button {
+    color: #ffffff !important;
+    background: var(--brand) !important;
+    border: none !important;
+    border-radius: 10px !important;
+    font-weight: 700 !important;
 }
 /* Audio input label */
 .stAudioInput label { color: var(--text) !important; font-weight: 600 !important; }
