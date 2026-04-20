@@ -60,10 +60,14 @@ def render(meetings: list) -> None:
     if not all_highlighted:
         return
 
-    # ── Date buttons shown directly — clicking reveals the detail list ──
+    # ── Checkbox toggle — state persists across reruns unlike st.expander ──
+    show = st.checkbox("🔍 View date details", key="cal_show_details")
+    if not show:
+        return
+
     st.markdown(
-        "<div style='font-size:0.75rem;color:#6e7f96;margin-top:0.35rem;margin-bottom:0.25rem'>"
-        "📅 = meeting held &nbsp;&nbsp; ⚡ = task due &nbsp;— press a date to see details</div>",
+        "<div style='font-size:0.75rem;color:#6e7f96;margin-bottom:0.3rem'>"
+        "📅 = meeting held &nbsp;&nbsp; ⚡ = task due &nbsp;— press a date below</div>",
         unsafe_allow_html=True,
     )
 
@@ -97,7 +101,7 @@ def render(meetings: list) -> None:
                     st.session_state.cal_selected = date_iso
                 st.rerun()
 
-    # ── Detail panel — only shows after a date button is pressed ─────
+    # Detail panel — only shows after a date is pressed
     selected = st.session_state.get("cal_selected")
     if not selected:
         return
