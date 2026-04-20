@@ -11,6 +11,7 @@ from ui.components import (
     kpi_card,
     kpi_wide,
 )
+from config.constants import TALENTCORP_DEPT_KEYWORDS
 from utils.formatters import get_upcoming_meetings  # kept for potential reuse
 from utils.helpers import (
     normalize_status,
@@ -66,6 +67,24 @@ def _render_kpis(meetings: list) -> None:
 
 
 # ------------------------------------------------------------------
+# TalentCorp department filter
+# ------------------------------------------------------------------
+def _is_talentcorp_dept(dept: str) -> bool:
+    """Return True if dept name matches a TalentCorp unit (case-insensitive partial match)."""
+    if not dept:
+        return True  # unknown dept → don't exclude
+    dl = dept.lower().strip()
+    # Exact match in keyword set
+    if dl in TALENTCORP_DEPT_KEYWORDS:
+        return True
+    # Partial match: any TalentCorp keyword appears in the dept string, or vice versa
+    for kw in TALENTCORP_DEPT_KEYWORDS:
+        if kw in dl or dl in kw:
+            return True
+    return False
+
+
+# ------------------------------------------------------------------
 # Local helper — all meetings with at least one non-done action
 # ------------------------------------------------------------------
 def _get_all_active_meetings(meetings: list) -> list:
@@ -117,6 +136,11 @@ def _render_upcoming(meetings: list) -> None:
             a_dept = normalize_value(a.get("department") or a.get("company"), "").strip()
             if a_dept in ("None", "Not stated", ""):
                 a_dept = m_dept
+
+            # Filter out action items belonging to external (non-TalentCorp) organisations
+            if a_dept and not _is_talentcorp_dept(a_dept):
+                continue
+
             action_rows.append({"action": a, "dept": a_dept, "meeting_date": m_date, "meeting_title": m_title})
 
     if not action_rows:
