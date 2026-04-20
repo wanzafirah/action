@@ -3,7 +3,7 @@ import streamlit as st
 
 from core.database import save_meeting
 from ui.components import action_card, kpi_card
-from utils.helpers import normalize_status, normalize_value
+from utils.helpers import days_left, normalize_status, normalize_value
 
 
 STATUS_FILTERS = ["All", "Pending", "In Progress", "Done", "Overdue"]
@@ -43,11 +43,29 @@ def render() -> None:
     filtered.sort(key=lambda m: normalize_value(m.get("date"), ""), reverse=True)
 
     for meeting in filtered:
-        with st.expander(
-            f"{normalize_value(meeting.get('title'), 'Untitled')}  ·  "
-            f"{normalize_value(meeting.get('date'), 'no date')}",
-            expanded=False,
-        ):
+        title   = normalize_value(meeting.get("title"), "Untitled")
+        m_date  = normalize_value(meeting.get("date"), "no date")
+        actions = meeting.get("actions") or []
+
+        # Build deadline summary for the expander label
+        n_overdue = sum(1 for a in actions if normalize_status(a) == "Overdue")
+        n_pending = sum(1 for a in actions if normalize_status(a) in ("Pending", "In Progress"))
+        min_dl    = None
+        for a in actions:
+            dl = days_left(normalize_value(a.get("deadline"), ""))
+            if dl is not None and normalize_status(a) not in ("Done", "Cancelled"):
+                min_dl = dl if min_dl is None else min(min_dl, dl)
+
+        if n_overdue > 0:
+            badge = f"  ⚠ {n_overdue} overdue"
+        elif min_dl is not None and min_dl <= 3:
+            badge = f"  🔔 due in {min_dl}d"
+        elif n_pending > 0:
+            badge = f"  · {n_pending} pending"
+        else:
+            badge = ""
+
+        with st.expander(f"{title}  ·  {m_date}{badge}", expanded=False):
             _render_meeting(meeting)
 
 
@@ -117,6 +135,21 @@ def _render_meeting(meeting: dict) -> None:
     meeting_id = normalize_value(meeting.get("id") or meeting.get("activityId"), "unknown")
     email_key  = f"followup_email_{meeting_id}"
     email_open = f"followup_open_{meeting_id}"
+
+    # ── Download PDF button ──────────────────────────────────────────
+    try:
+        from utils.export import generate_meeting_pdf
+        pdf_bytes = generate_meeting_pdf(meeting)
+        safe_title = "".join(c for c in normalize_value(meeting.get("title"), "meeting") if c.isalnum() or c in " _-")[:40].strip()
+        st.download_button(
+            label="⬇ Download Brief (PDF)",
+            data=pdf_bytes,
+            file_name=f"{safe_title}.pdf",
+            mime="application/pdf",
+            key=f"dl_pdf_{meeting_id}",
+        )
+    except Exception:
+        pass
 
     if st.button("📧 Copy Follow-Up Email", key=f"btn_email_{meeting_id}"):
         if st.session_state.get(email_open):
