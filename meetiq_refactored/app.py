@@ -9,8 +9,8 @@ Run locally:
 import streamlit as st
 
 from core.database import load_all
-from pages import capture, dashboard, history, tracker
 from ui import sidebar
+from views import capture, dashboard, history, tracker
 from ui.styles import inject_css
 
 
