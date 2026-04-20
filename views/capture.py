@@ -37,6 +37,7 @@ def _clear_all_inputs() -> None:
         st.session_state.pop(k, None)
     # Reset ID field to empty (don't pop — we always read it via _cap_id_val)
     st.session_state._cap_id_val = ""
+    st.session_state.pop("cap_email_draft", None)
 
 
 def render() -> None:
@@ -210,6 +211,18 @@ def render() -> None:
         result = pending["result"]
         summary_panel(result)
 
+        # ── Copy Email button ─────────────────────────────────────────
+        if st.button("📧 Copy Meeting Summary Email", key="cap_email_btn"):
+            st.session_state.cap_email_draft = _build_email_text(pending, result)
+
+        if st.session_state.get("cap_email_draft"):
+            st.text_area(
+                "Email draft — copy and paste to send",
+                value=st.session_state.cap_email_draft,
+                height=300,
+                key="cap_email_ta",
+            )
+
         st.markdown("### Action items")
         actions = result.get("action_items", [])
         if not actions:
@@ -228,13 +241,50 @@ def render() -> None:
                     st.success(f"Saved meeting {meeting['activityId']}.")
                 except Exception as exc:
                     st.warning(f"Saved locally but Supabase sync failed: {exc}")
-                # Clear everything — transcript, recap, and all form inputs
                 _clear_all_inputs()
                 st.rerun()
         with col_discard:
             if st.button("Discard", key="cap_discard"):
                 st.session_state.pop("pending_result", None)
+                st.session_state.pop("cap_email_draft", None)
                 st.rerun()
+
+
+def _build_email_text(pending: dict, result: dict) -> str:
+    """Format the generated brief as a copy-paste email."""
+    from datetime import datetime as _dt
+    title      = result.get("title") or pending["metadata"].get("Title") or "Meeting Recap"
+    date_str   = pending.get("meeting_date", "")
+    report_by  = pending.get("updated_by", "") or "The Meeting Organizer"
+    summary    = result.get("summary", "")
+    decisions  = result.get("key_decisions") or []
+
+    try:
+        date_display = _dt.strptime(date_str, "%Y-%m-%d").strftime("%A, %d %B %Y")
+    except Exception:
+        date_display = date_str
+
+    action_lines = []
+    for i, a in enumerate(result.get("action_items", []) or [], 1):
+        text     = a.get("text", "")
+        owner    = a.get("owner", "Not stated")
+        deadline = a.get("deadline", "Not stated")
+        action_lines.append(f"  {i}. {text}\n     Owner: {owner} | Deadline: {deadline}")
+
+    decision_lines = "\n".join(f"  - {d}" for d in decisions) if decisions else "  None recorded."
+    actions_block  = "\n".join(action_lines) if action_lines else "  No action items recorded."
+
+    return (
+        f"Dear colleagues,\n\n"
+        f"Please find below the meeting monitoring report for today, for your reference.\n\n"
+        f"MEDIA MONITORING REPORT\n"
+        f"Date: {date_display}\n\n"
+        f"Meeting: {title}\n\n"
+        f"Summary:\n{summary}\n\n"
+        f"Key Decisions:\n{decision_lines}\n\n"
+        f"Action Items:\n{actions_block}\n\n"
+        f"Regards,\n{report_by}"
+    )
 
 
 def _build_meeting_record(pending: dict) -> dict:
