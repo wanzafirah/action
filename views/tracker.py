@@ -68,6 +68,44 @@ def _filter_meetings(meetings: list, search: str, status_filter: str) -> list:
     return out
 
 
+def _build_followup_email(meeting: dict) -> str:
+    """Format the saved meeting data as a copy-paste follow-up email (no AI call)."""
+    from datetime import datetime as _dt
+    title      = normalize_value(meeting.get("title"), "Meeting")
+    date_str   = normalize_value(meeting.get("date"), "")
+    summary    = normalize_value(meeting.get("summary"), "No summary provided.")
+    objective  = normalize_value(meeting.get("objective"), "")
+    report_by  = normalize_value(meeting.get("user_id") or meeting.get("updated_by"), "The Meeting Organizer")
+
+    try:
+        date_display = _dt.strptime(date_str, "%Y-%m-%d").strftime("%A, %d %B %Y")
+    except Exception:
+        date_display = date_str
+
+    action_lines = []
+    for i, a in enumerate((meeting.get("actions") or []), 1):
+        if normalize_status(a) not in ("Done", "Cancelled"):
+            text     = normalize_value(a.get("text"), "")
+            owner    = normalize_value(a.get("owner"), "Not stated")
+            deadline = normalize_value(a.get("deadline"), "Not stated")
+            action_lines.append(f"  {i}. {text}\n     Owner: {owner} | Deadline: {deadline}")
+
+    actions_block  = "\n".join(action_lines) if action_lines else "  No pending action items."
+    objective_line = f"\nObjective:\n{objective}\n" if objective else ""
+
+    return (
+        f"Dear colleagues,\n\n"
+        f"Please find below the meeting monitoring report for your reference.\n\n"
+        f"MEETING RECAP\n"
+        f"Date: {date_display}\n\n"
+        f"Meeting: {title}\n\n"
+        f"Summary:\n{summary}\n"
+        f"{objective_line}\n"
+        f"Action Items:\n{actions_block}\n\n"
+        f"Regards,\n{report_by}"
+    )
+
+
 def _render_meeting(meeting: dict) -> None:
     st.markdown(f"**Summary:** {normalize_value(meeting.get('summary'), 'No summary.')}")
     st.markdown(f"**Objective:** {normalize_value(meeting.get('objective'), 'Not provided')}")
@@ -80,20 +118,14 @@ def _render_meeting(meeting: dict) -> None:
     email_key  = f"followup_email_{meeting_id}"
     email_open = f"followup_open_{meeting_id}"
 
-    if st.button("📧 Generate Follow-Up Email", key=f"btn_email_{meeting_id}"):
+    if st.button("📧 Copy Follow-Up Email", key=f"btn_email_{meeting_id}"):
         if st.session_state.get(email_open):
             st.session_state.pop(email_key, None)
             st.session_state[email_open] = False
         else:
-            with st.spinner("Drafting follow-up email…"):
-                try:
-                    from core.pipeline import generate_followup_email
-                    st.session_state[email_key] = generate_followup_email(meeting)
-                    st.session_state[email_open] = True
-                except Exception as exc:
-                    st.session_state[email_key] = f"Could not generate email: {exc}"
-                    st.session_state[email_open] = True
-            st.rerun()
+            st.session_state[email_key] = _build_followup_email(meeting)
+            st.session_state[email_open] = True
+        st.rerun()
 
     if st.session_state.get(email_open) and st.session_state.get(email_key):
         st.text_area(
