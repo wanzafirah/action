@@ -92,19 +92,15 @@ def _get_all_active_meetings(meetings: list) -> list:
 
 
 # ------------------------------------------------------------------
-# Unified Upcoming Tasks + Nudge Alerts
+# Unified Upcoming Tasks + Nudge Alerts — grouped by department
 # ------------------------------------------------------------------
 def _render_upcoming(meetings: list) -> None:
-    """Show ALL meetings with any pending/in-progress/overdue actions.
+    """Show ALL meetings with pending/in-progress/overdue actions, grouped by department."""
+    from collections import defaultdict
+    from utils.helpers import nudge_flags
 
-    Each expander shows the meeting title. Inside, action cards carry
-    coloured nudge badges (overdue, due soon, long-pending) so the digest
-    and upcoming views are merged into one place.
-    """
     active = _get_all_active_meetings(meetings)
 
-    # Count how many alerts exist across all meetings
-    from utils.helpers import nudge_flags
     total_alerts = sum(
         len(nudge_flags(a, normalize_value(m.get("date"), "")))
         for m in active
@@ -122,12 +118,46 @@ def _render_upcoming(meetings: list) -> None:
         st.info("No pending actions. Add a meeting in Capture to see it here.")
         return
 
+    # Group meetings by department
+    dept_map: dict = defaultdict(list)
     for m in active:
-        title = normalize_value(m.get("title"), "Untitled meeting")
-        meeting_date = normalize_value(m.get("date"), "")
-        label = f"{title}  ·  {meeting_date}" if meeting_date else title
-        with st.expander(label, expanded=False):
-            _render_upcoming_detail(m)
+        dept = normalize_value(m.get("deptName") or m.get("department"), "").strip()
+        if dept in ("None", "Not stated", "No group", ""):
+            dept = ""
+        dept_map[dept].append(m)
+
+    named_depts = sorted(k for k in dept_map if k)
+
+    # ── Named departments first ──────────────────────────────────────
+    for dept in named_depts:
+        st.markdown(
+            f"<div style='font-size:0.82rem;font-weight:800;color:var(--brand-2);"
+            f"text-transform:uppercase;letter-spacing:0.07em;margin:0.8rem 0 0.3rem'>"
+            f"🏢 {dept}</div>",
+            unsafe_allow_html=True,
+        )
+        for m in dept_map[dept]:
+            title = normalize_value(m.get("title"), "Untitled meeting")
+            meeting_date = normalize_value(m.get("date"), "")
+            label = f"{title}  ·  {meeting_date}" if meeting_date else title
+            with st.expander(label, expanded=False):
+                _render_upcoming_detail(m)
+
+    # ── Meetings with no department ──────────────────────────────────
+    if "" in dept_map:
+        if named_depts:
+            st.markdown(
+                "<div style='font-size:0.82rem;font-weight:800;color:var(--text-soft);"
+                "text-transform:uppercase;letter-spacing:0.07em;margin:0.8rem 0 0.3rem'>"
+                "📋 Other</div>",
+                unsafe_allow_html=True,
+            )
+        for m in dept_map[""]:
+            title = normalize_value(m.get("title"), "Untitled meeting")
+            meeting_date = normalize_value(m.get("date"), "")
+            label = f"{title}  ·  {meeting_date}" if meeting_date else title
+            with st.expander(label, expanded=False):
+                _render_upcoming_detail(m)
 
 
 def _render_upcoming_detail(meeting: dict) -> None:
