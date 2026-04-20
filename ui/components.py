@@ -142,6 +142,35 @@ def action_card(
         return
 
     action_id = action.get("id", "")
+
+    # ── Give Idea button (AI project manager guidance) ───────────────
+    idea_key  = f"idea_{action_id}"
+    idea_open = f"idea_open_{action_id}"
+    if st.button("💡 Give Idea", key=f"btn_idea_{action_id}", use_container_width=False):
+        if st.session_state.get(idea_open):
+            # Toggle off
+            st.session_state.pop(idea_key, None)
+            st.session_state[idea_open] = False
+        else:
+            with st.spinner("Thinking like a project manager…"):
+                try:
+                    from core.pipeline import get_action_idea
+                    st.session_state[idea_key] = get_action_idea(action)
+                    st.session_state[idea_open] = True
+                except Exception as exc:
+                    st.session_state[idea_key] = f"Could not generate ideas: {exc}"
+                    st.session_state[idea_open] = True
+            st.rerun()
+
+    if st.session_state.get(idea_open) and st.session_state.get(idea_key):
+        st.markdown(
+            f"<div style='background:#f0fdf4;border:1px solid #86efac;border-radius:12px;"
+            f"padding:0.7rem 0.9rem;margin:0.3rem 0 0.5rem;font-size:0.88rem;color:#14532d'>"
+            f"<strong>💡 Project Manager Guidance</strong><br><br>"
+            f"{st.session_state[idea_key].replace(chr(10), '<br>')}"
+            f"</div>",
+            unsafe_allow_html=True,
+        )
     current = action.get("status", "Pending")
     new_status = st.selectbox(
         "Update status",
