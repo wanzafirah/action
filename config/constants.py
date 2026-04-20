@@ -39,23 +39,52 @@ ACTIVITY_TYPE_OPTIONS = ["None", "Virtual", "Physical", "Both"]
 ORGANIZATION_TYPE_OPTIONS = ["Institution", "Company"]
 
 DEFAULT_DEPARTMENTS = [
-    "Group client management",
-    "Group communications & public relations",
-    "Group information & communication technology",
-    "Group finance",
-    "Group government engagement & facilitation",
-    "Group human resources, admin & procurement",
-    "Group research & policy",
-    "Group CEO liaison office",
-    "Graduate & emerging talent",
+    # Strategic Support Units
+    "Group Client Relationship Management",
+    "Group Communications & Public Relations",
+    "Strategic Communications",
+    "Brand Marketing",
+    "Digital Marketing",
+    "Events",
+    "Production",
+    "Group Digital",
+    "Business Intelligence",
+    "Digital & Technology Solutions",
+    "IT Operations & Security",
+    "Group Finance",
+    "Group Government Engagement & Facilitation",
+    "Group Human Resources Admin & Procurement",
+    "Group Research & Policy",
+    "Group CEO Liaison Office",
+    # Business Development Units
+    "Graduate & Emerging Talent",
+    "Campus Engagement",
+    "Internship Facilitation",
+    "Centre of Excellence",
     "School Talent",
     "MyMahir",
-    "Women, DEI & work-life practices",
-    "MyHeart facilitation",
+    "MyMahir Sector Development",
+    "MyMahir Workforce Solutions",
+    "Veteran MyWira",
+    "Women DEI & Work-Life Practices",
+    "Wanita MyWira",
+    "Work-Life Practices",
+    "MyHeart Facilitation",
+    "MyHeart Operations",
     "MyHeart Network",
-    "MYXpats operations",
-    "Residence Pass talent",
+    "MYXpats Operations",
+    "Residence Pass-Talent",
+    # Regional Offices
+    "Region - Northern",
+    "Region - Southern",
+    "Region - East Coast",
+    "Region - East Malaysia",
 ]
+
+# Lowercase set used to filter action items to TalentCorp-only departments
+TALENTCORP_DEPT_KEYWORDS = {d.lower() for d in DEFAULT_DEPARTMENTS} | {
+    "talentcorp", "talent corp", "tc", "talentcorp malaysia",
+}
 
 # ------------------------------------------------------------------
 # Status visual configuration
