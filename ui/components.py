@@ -67,6 +67,8 @@ def action_card(
     editable: bool = False,
     persist_callback=None,
     meeting_date: str = "",
+    meeting_title: str = "",
+    show_suggestion: bool = False,
 ) -> None:
     """Render a single action item with smart nudge flags."""
     status = normalize_status(action)
@@ -86,11 +88,16 @@ def action_card(
         or _raw_owner.lower() == department.lower()
     )
     owner = "Not stated" if _is_org else _raw_owner
-    suggestion = normalize_value(action.get("suggestion"), "No next-step suggestion generated.")
     deadline_display = pretty_deadline(normalize_value(action.get("deadline"), "None"))
     action_text = normalize_value(action.get("text"), "Untitled action")
 
-    # Build nudge pills HTML (single line, no indentation)
+    # Optional meeting title label above the action
+    mtitle_html = ""
+    if meeting_title:
+        mtitle_html = (f"<div style='font-size:0.74rem;color:var(--text-soft);"
+                       f"margin-bottom:0.2rem'>📋 {meeting_title}</div>")
+
+    # Build nudge pills HTML
     nudge_html = ""
     flags = nudge_flags(action, meeting_date)
     if flags:
@@ -109,8 +116,15 @@ def action_card(
             pills += f"<span class='nudge-pill {cls}'>{f}</span>"
         nudge_html = f"<div class='nudge-bar'>{pills}</div>"
 
+    suggestion_html = ""
+    if show_suggestion:
+        suggestion = normalize_value(action.get("suggestion"), "")
+        if suggestion and suggestion != "No next-step suggestion generated.":
+            suggestion_html = f"<div class='action-subtle'>{suggestion}</div>"
+
     st.markdown(
         f"<div class='action-card'>"
+        f"{mtitle_html}"
         f"<div class='action-top'>"
         f"<div class='action-title'>{action_text}</div>"
         f"{pill(status, cfg['color'], cfg['bg'])}"
@@ -119,7 +133,7 @@ def action_card(
         f"<div class='action-meta'>"
         f"Assignee: {owner} &nbsp;|&nbsp; Department: {department} &nbsp;|&nbsp; Deadline: {deadline_display}"
         f"</div>"
-        f"<div class='action-subtle'>{suggestion}</div>"
+        f"{suggestion_html}"
         f"</div>",
         unsafe_allow_html=True,
     )
