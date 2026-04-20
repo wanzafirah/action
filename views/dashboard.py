@@ -101,22 +101,23 @@ def _render_upcoming(meetings: list) -> None:
 
     st.markdown("#### Upcoming Tasks")
 
-    # Gather every non-done action item with its meeting context
+    # Gather Pending and In Progress action items only (Overdue/Done/Cancelled excluded)
     action_rows = []
     for m in meetings:
-        m_date = normalize_value(m.get("date"), "")
-        m_dept = normalize_value(m.get("deptName") or m.get("department"), "").strip()
+        m_date  = normalize_value(m.get("date"), "")
+        m_title = normalize_value(m.get("title"), "Untitled meeting")
+        m_dept  = normalize_value(m.get("deptName") or m.get("department"), "").strip()
         if m_dept in ("None", "Not stated", "No group"):
             m_dept = ""
 
         for a in (m.get("actions") or []):
-            if normalize_status(a) in ("Done", "Cancelled"):
+            if normalize_status(a) not in ("Pending", "In Progress"):
                 continue
             # Action's own department takes priority; fall back to meeting's dept
             a_dept = normalize_value(a.get("department") or a.get("company"), "").strip()
             if a_dept in ("None", "Not stated", ""):
                 a_dept = m_dept
-            action_rows.append({"action": a, "dept": a_dept, "meeting_date": m_date})
+            action_rows.append({"action": a, "dept": a_dept, "meeting_date": m_date, "meeting_title": m_title})
 
     if not action_rows:
         st.info("No pending actions. Add a meeting in Capture to see it here.")
@@ -137,7 +138,7 @@ def _render_upcoming(meetings: list) -> None:
             unsafe_allow_html=True,
         )
         for row in dept_map[dept]:
-            action_card(row["action"], meeting_date=row["meeting_date"])
+            action_card(row["action"], meeting_date=row["meeting_date"], meeting_title=row["meeting_title"])
 
     if "" in dept_map:
         if named_depts:
@@ -148,7 +149,7 @@ def _render_upcoming(meetings: list) -> None:
                 unsafe_allow_html=True,
             )
         for row in dept_map[""]:
-            action_card(row["action"], meeting_date=row["meeting_date"])
+            action_card(row["action"], meeting_date=row["meeting_date"], meeting_title=row["meeting_title"])
 
 
 # ------------------------------------------------------------------
