@@ -228,15 +228,23 @@ section[data-testid="stSidebar"] .stButton > button {
     border: 1px dashed var(--border) !important;
     border-radius: 12px !important;
 }
-/* "Browse files" / upload button — white text on dark background */
+/* "Browse files" / upload button — white text, force all selectors */
+.stFileUploader button,
 .stFileUploader [data-testid="stFileUploaderDropzone"] button,
-.stFileUploader button[kind="secondary"],
-.stFileUploader button {
+[data-testid="stFileUploaderDropzone"] button,
+[data-testid="stFileUploaderDropzoneInstructions"] ~ div button,
+section[data-testid="stFileUploader"] button {
     color: #ffffff !important;
     background: var(--brand) !important;
     border: none !important;
     border-radius: 10px !important;
     font-weight: 700 !important;
+}
+/* Catch any nested span/p inside the upload button */
+.stFileUploader button span,
+.stFileUploader button p,
+[data-testid="stFileUploaderDropzone"] button span {
+    color: #ffffff !important;
 }
 /* Audio input label */
 .stAudioInput label { color: var(--text) !important; font-weight: 600 !important; }
