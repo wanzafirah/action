@@ -33,6 +33,19 @@ def kpi_card(title: str, value: str, subtitle: str, accent: str = "#0f766e") -> 
     )
 
 
+def kpi_wide(label: str, value: str) -> None:
+    """Full-width hero KPI card used at the top of the dashboard."""
+    st.markdown(
+        f"""
+        <div class='kpi-wide'>
+            <div class='kpi-wide-label'>{label}</div>
+            <div class='kpi-wide-value'>{value}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 def completion_ring(percent: int) -> None:
     safe = max(0, min(int(percent), 100))
     st.markdown(
@@ -175,6 +188,50 @@ def summary_panel(result: dict) -> None:
         _summary_section("Next Steps", join_list(next_steps))
     with right:
         _summary_section("People Involved", join_list(people))
+
+
+def upcoming_task_card(meeting: dict) -> None:
+    """Render a full meeting card with its pending action items.
+
+    Matches the Upcoming Tasks design: report-by header + date pill,
+    activity id line, summary paragraph, then every action item below.
+    """
+    report_by = normalize_value(meeting.get("user_id") or meeting.get("updated_by"), "Not stated")
+    meeting_date = normalize_value(meeting.get("date"), "TBD")
+    activity_id = normalize_value(meeting.get("activityId") or meeting.get("meetingID"), "No ID")
+    department = normalize_value(
+        meeting.get("deptName") or meeting.get("department"), "No group"
+    )
+    summary = normalize_value(meeting.get("summary") or meeting.get("recaps"), "No summary yet.")
+    title = normalize_value(meeting.get("title"), "Untitled meeting")
+
+    st.markdown(
+        f"""
+        <div class='upcoming-card'>
+            <div class='upcoming-header'>
+                <div>
+                    <div class='upcoming-report-by'>Report by: {report_by}</div>
+                    <div class='upcoming-meta'>{activity_id} | {department}</div>
+                </div>
+                <div class='upcoming-date'>{meeting_date}</div>
+            </div>
+            <div style='font-weight:700;color:var(--text);margin-bottom:0.4rem'>{title}</div>
+            <p class='upcoming-summary'><strong>Summary:</strong> {summary}</p>
+            <div class='upcoming-section-title'>Action Items</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    actions = [
+        a for a in (meeting.get("actions") or [])
+        if normalize_status(a) in {"Pending", "In Progress", "Overdue"}
+    ]
+    if not actions:
+        st.caption("No pending action items for this meeting.")
+        return
+    for a in actions:
+        action_card(a)
 
 
 def _summary_section(title: str, body: str) -> None:
