@@ -55,24 +55,23 @@ def render() -> None:
         activity_type = st.selectbox("Meeting type", ACTIVITY_TYPE_OPTIONS, key="cap_type")
         organization_type = st.selectbox("Organization type", ORGANIZATION_TYPE_OPTIONS, key="cap_org")
 
-        # Activity ID row: input + Generate button side by side
-        # Use a separate shadow key (_cap_id_val) so we never write to the
-        # widget key after it has already rendered (Streamlit forbids that).
+        # Activity ID — starts empty; user types their own or clicks Generate.
+        # Uses shadow key _cap_id_val to avoid writing to a widget key after render.
         if "_cap_id_val" not in st.session_state:
-            st.session_state._cap_id_val = generate_activity_id(category, meeting_date, meetings)
+            st.session_state._cap_id_val = ""   # empty by default
 
         id_col, btn_col = st.columns([3, 1])
         with id_col:
             activity_id = st.text_input(
                 "Activity ID",
                 value=st.session_state._cap_id_val,
+                placeholder="Type your ID or click Generate →",
                 key="cap_activity_id",
             )
         with btn_col:
-            st.markdown("<div style='height:1.75rem'></div>", unsafe_allow_html=True)
+            # Use write("") to push the button down to input level without HTML
+            st.write("")
             if st.button("Generate ID", key="cap_gen_id", use_container_width=True):
-                # Store new ID in shadow key, delete widget key so it
-                # re-initialises from value= on the next run.
                 st.session_state._cap_id_val = generate_activity_id(
                     category, meeting_date, meetings
                 )
@@ -160,7 +159,6 @@ def render() -> None:
         do_generate = st.button(
             "Generate brief",
             type="primary",
-            disabled=not transcript.strip(),
             key="cap_generate",
         )
     with btn_clear:
@@ -168,7 +166,9 @@ def render() -> None:
             _clear_all_inputs()
             st.rerun()
 
-    if do_generate:
+    if do_generate and not transcript.strip():
+        st.warning("Please paste or type a transcript first.")
+    elif do_generate:
         metadata = {
             "Title": title,
             "Category": category,
@@ -180,7 +180,7 @@ def render() -> None:
             "Meeting Date": meeting_date.isoformat(),
             "Activity ID": activity_id,
         }
-        with st.spinner("Analysing transcript… this usually takes under a minute."):
+        with st.spinner("Analyzing transcript…"):
             try:
                 result = run_pipeline(transcript, metadata)
                 st.session_state.pending_result = {
