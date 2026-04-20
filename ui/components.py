@@ -152,7 +152,7 @@ def action_card(
             st.session_state.pop(idea_key, None)
             st.session_state[idea_open] = False
         else:
-            with st.spinner("Thinking like a project manager…"):
+            with st.spinner("Thinking…"):
                 try:
                     from core.pipeline import get_action_idea
                     st.session_state[idea_key] = get_action_idea(action)
@@ -163,11 +163,16 @@ def action_card(
             st.rerun()
 
     if st.session_state.get(idea_open) and st.session_state.get(idea_key):
+        import re as _re
+        _raw_idea = st.session_state[idea_key]
+        # Strip **bold** markdown symbols
+        _clean_idea = _re.sub(r"\*\*(.+?)\*\*", r"\1", _raw_idea)
+        _clean_idea = _re.sub(r"\*(.+?)\*", r"\1", _clean_idea)
         st.markdown(
             f"<div style='background:#f0fdf4;border:1px solid #86efac;border-radius:12px;"
             f"padding:0.7rem 0.9rem;margin:0.3rem 0 0.5rem;font-size:0.88rem;color:#14532d'>"
-            f"<strong>💡 Project Manager Guidance</strong><br><br>"
-            f"{st.session_state[idea_key].replace(chr(10), '<br>')}"
+            f"<strong>💡 Guidance</strong><br><br>"
+            f"{_clean_idea.replace(chr(10), '<br>')}"
             f"</div>",
             unsafe_allow_html=True,
         )
