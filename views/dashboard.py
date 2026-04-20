@@ -11,7 +11,7 @@ from ui.components import (
     kpi_card,
     kpi_wide,
 )
-from utils.formatters import get_all_active_meetings
+from utils.formatters import get_upcoming_meetings  # kept for potential reuse
 from utils.helpers import (
     normalize_status,
     normalize_value,
@@ -66,6 +66,32 @@ def _render_kpis(meetings: list) -> None:
 
 
 # ------------------------------------------------------------------
+# Local helper — all meetings with at least one non-done action
+# ------------------------------------------------------------------
+def _get_all_active_meetings(meetings: list) -> list:
+    from utils.helpers import days_left as _dl
+    candidates = []
+    for m in meetings:
+        actions = [
+            a for a in (m.get("actions") or [])
+            if normalize_status(a) not in ("Done", "Cancelled")
+        ]
+        if not actions:
+            continue
+        dl_values = []
+        for a in actions:
+            d = normalize_value(a.get("deadline"), "")
+            if d and d not in ("None", "Not stated"):
+                v = _dl(d)
+                if v is not None:
+                    dl_values.append(v)
+        urgency = min(dl_values) if dl_values else 9999
+        candidates.append((urgency, m))
+    candidates.sort(key=lambda t: t[0])
+    return [m for _, m in candidates]
+
+
+# ------------------------------------------------------------------
 # Unified Upcoming Tasks + Nudge Alerts
 # ------------------------------------------------------------------
 def _render_upcoming(meetings: list) -> None:
@@ -75,7 +101,7 @@ def _render_upcoming(meetings: list) -> None:
     coloured nudge badges (overdue, due soon, long-pending) so the digest
     and upcoming views are merged into one place.
     """
-    active = get_all_active_meetings(meetings)
+    active = _get_all_active_meetings(meetings)
 
     # Count how many alerts exist across all meetings
     from utils.helpers import nudge_flags
