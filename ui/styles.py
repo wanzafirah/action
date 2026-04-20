@@ -228,23 +228,33 @@ section[data-testid="stSidebar"] .stButton > button {
     border: 1px dashed var(--border) !important;
     border-radius: 12px !important;
 }
-/* "Browse files" / upload button — white text, force all selectors */
+/* "Browse files" / Upload button — white text, maximum specificity */
 .stFileUploader button,
 .stFileUploader [data-testid="stFileUploaderDropzone"] button,
 [data-testid="stFileUploaderDropzone"] button,
 [data-testid="stFileUploaderDropzoneInstructions"] ~ div button,
-section[data-testid="stFileUploader"] button {
+section[data-testid="stFileUploader"] button,
+div[data-testid="stFileUploader"] button,
+div[data-testid^="stFileUploader"] button {
     color: #ffffff !important;
     background: var(--brand) !important;
     border: none !important;
     border-radius: 10px !important;
     font-weight: 700 !important;
 }
-/* Catch any nested span/p inside the upload button */
+/* Every descendant of upload button — catches span, p, svg text, icons */
+.stFileUploader button *,
 .stFileUploader button span,
 .stFileUploader button p,
-[data-testid="stFileUploaderDropzone"] button span {
+.stFileUploader button div,
+.stFileUploader button small,
+[data-testid="stFileUploaderDropzone"] button *,
+[data-testid="stFileUploaderDropzone"] button span,
+div[data-testid^="stFileUploader"] button *,
+div[data-testid^="stFileUploader"] button span,
+section[data-testid="stFileUploader"] button * {
     color: #ffffff !important;
+    fill: #ffffff !important;
 }
 /* Audio input label */
 .stAudioInput label { color: var(--text) !important; font-weight: 600 !important; }
