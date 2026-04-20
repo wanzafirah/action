@@ -71,8 +71,21 @@ def action_card(
     """Render a single action item with smart nudge flags."""
     status = normalize_status(action)
     cfg = STATUS_CFG.get(status, STATUS_CFG["Pending"])
-    owner = normalize_value(action.get("owner"), "Not stated")
+    _raw_owner = normalize_value(action.get("owner"), "")
     department = normalize_value(action.get("department") or action.get("company"), "Not stated")
+    # If owner looks like an organisation (contains org-like words, or matches the department),
+    # treat it as "Not stated" — a person's name should not contain these keywords.
+    _org_keywords = ("team", "corp", "sdn", "bhd", "ltd", "inc", "department",
+                     "division", "unit", "group", "ministry", "agency", "centre",
+                     "center", "office", "bureau", "talentcorp", "mynext")
+    _owner_lower = _raw_owner.lower()
+    _is_org = (
+        not _raw_owner
+        or _raw_owner == "Not stated"
+        or any(kw in _owner_lower for kw in _org_keywords)
+        or _raw_owner.lower() == department.lower()
+    )
+    owner = "Not stated" if _is_org else _raw_owner
     suggestion = normalize_value(action.get("suggestion"), "No next-step suggestion generated.")
     deadline_display = pretty_deadline(normalize_value(action.get("deadline"), "None"))
     action_text = normalize_value(action.get("text"), "Untitled action")
