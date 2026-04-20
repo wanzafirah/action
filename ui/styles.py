@@ -266,6 +266,16 @@ html body [data-testid="stFileUploaderDropzoneInstructions"] ~ div button p {
     font-weight: 600 !important;
     opacity: 1 !important;
 }
+/* Checkbox label text — target all internal elements for visibility */
+div[data-testid="stCheckbox"] label,
+div[data-testid="stCheckbox"] label p,
+div[data-testid="stCheckbox"] label span,
+div[data-baseweb="checkbox"] span,
+div[data-baseweb="checkbox"] p,
+.stCheckbox span, .stCheckbox p {
+    color: var(--text) !important;
+    opacity: 1 !important;
+}
 .stRadio div[role="radiogroup"] label,
 .stRadio div[role="radiogroup"] p {
     color: var(--text-muted) !important;
