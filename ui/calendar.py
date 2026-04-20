@@ -60,102 +60,101 @@ def render(meetings: list) -> None:
     if not all_highlighted:
         return
 
-    # Wrap everything in a collapsed expander — list only appears after a date is pressed
-    with st.expander("📋 View date details", expanded=False):
-        st.markdown(
-            "<div style='font-size:0.78rem;color:#6e7f96;margin-bottom:0.4rem'>"
-            "Press a date to see its meetings or tasks:</div>",
-            unsafe_allow_html=True,
-        )
+    # ── Date buttons shown directly — clicking reveals the detail list ──
+    st.markdown(
+        "<div style='font-size:0.75rem;color:#6e7f96;margin-top:0.35rem;margin-bottom:0.25rem'>"
+        "📅 = meeting held &nbsp;&nbsp; ⚡ = task due &nbsp;— press a date to see details</div>",
+        unsafe_allow_html=True,
+    )
 
-        MAX_COLS = 7
-        rows = [all_highlighted[i:i+MAX_COLS] for i in range(0, len(all_highlighted), MAX_COLS)]
+    MAX_COLS = 7
+    rows = [all_highlighted[i:i+MAX_COLS] for i in range(0, len(all_highlighted), MAX_COLS)]
 
-        for row in rows:
-            cols = st.columns(MAX_COLS)
-            for i, day_num in enumerate(row):
-                is_m = day_num in conducted
-                is_d = day_num in pending
-                if is_m and is_d:
-                    label = f"📅⚡{day_num}"
-                elif is_m:
-                    label = f"📅{day_num}"
+    for row in rows:
+        cols = st.columns(MAX_COLS)
+        for i, day_num in enumerate(row):
+            is_m = day_num in conducted
+            is_d = day_num in pending
+            if is_m and is_d:
+                label = f"📅⚡{day_num}"
+            elif is_m:
+                label = f"📅{day_num}"
+            else:
+                label = f"⚡{day_num}"
+
+            date_iso = date(year, month, day_num).isoformat()
+            selected = st.session_state.get("cal_selected")
+
+            if cols[i].button(
+                label,
+                key=f"cal_btn_{year}_{month}_{day_num}",
+                use_container_width=True,
+                type="primary" if selected == date_iso else "secondary",
+            ):
+                if selected == date_iso:
+                    st.session_state.cal_selected = None
                 else:
-                    label = f"⚡{day_num}"
+                    st.session_state.cal_selected = date_iso
+                st.rerun()
 
-                date_iso = date(year, month, day_num).isoformat()
-                selected = st.session_state.get("cal_selected")
+    # ── Detail panel — only shows after a date button is pressed ─────
+    selected = st.session_state.get("cal_selected")
+    if not selected:
+        return
 
-                if cols[i].button(
-                    label,
-                    key=f"cal_btn_{year}_{month}_{day_num}",
-                    use_container_width=True,
-                    type="primary" if selected == date_iso else "secondary",
-                ):
-                    if selected == date_iso:
-                        st.session_state.cal_selected = None
-                    else:
-                        st.session_state.cal_selected = date_iso
-                    st.rerun()
+    sel_day = int(selected.split("-")[2])
+    is_m = sel_day in conducted
+    is_d = sel_day in pending
 
-        # ── Detail panel — only shows after a date button is pressed ────
-        selected = st.session_state.get("cal_selected")
-        if not selected:
-            return
+    st.markdown(
+        f"<div style='margin-top:0.7rem;font-weight:800;font-size:0.95rem;"
+        f"color:var(--brand)'>{selected}</div>",
+        unsafe_allow_html=True,
+    )
 
-        sel_day = int(selected.split("-")[2])
-        is_m = sel_day in conducted
-        is_d = sel_day in pending
-
+    if is_m:
+        mtgs = get_meetings_on_date(meetings, selected)
         st.markdown(
-            f"<div style='margin-top:0.7rem;font-weight:800;font-size:0.95rem;"
-            f"color:var(--brand)'>{selected}</div>",
+            "<div style='font-size:0.8rem;font-weight:700;color:#1e40af;"
+            "margin:0.35rem 0 0.2rem'>📅 Meetings held</div>",
             unsafe_allow_html=True,
         )
+        if mtgs:
+            for m in mtgs:
+                title = normalize_value(m.get("title"), "Untitled")
+                dept  = normalize_value(m.get("deptName") or m.get("department"), "")
+                meta  = f" · {dept}" if dept else ""
+                st.markdown(
+                    f"<div style='background:#eff6ff;border:1px solid #bfdbfe;"
+                    f"border-radius:8px;padding:0.35rem 0.6rem;margin-bottom:0.25rem;"
+                    f"font-size:0.85rem'>"
+                    f"<strong>{title}</strong>{meta}</div>",
+                    unsafe_allow_html=True,
+                )
+        else:
+            st.caption("No meeting details found.")
 
-        if is_m:
-            mtgs = get_meetings_on_date(meetings, selected)
-            st.markdown(
-                "<div style='font-size:0.8rem;font-weight:700;color:#1e40af;"
-                "margin:0.35rem 0 0.2rem'>📅 Meetings held</div>",
-                unsafe_allow_html=True,
-            )
-            if mtgs:
-                for m in mtgs:
-                    title = normalize_value(m.get("title"), "Untitled")
-                    dept  = normalize_value(m.get("deptName") or m.get("department"), "")
-                    meta  = f" · {dept}" if dept else ""
-                    st.markdown(
-                        f"<div style='background:#eff6ff;border:1px solid #bfdbfe;"
-                        f"border-radius:8px;padding:0.35rem 0.6rem;margin-bottom:0.25rem;"
-                        f"font-size:0.85rem'>"
-                        f"<strong>{title}</strong>{meta}</div>",
-                        unsafe_allow_html=True,
-                    )
-            else:
-                st.caption("No meeting details found.")
-
-        if is_d:
-            actions = get_actions_due_on_date(meetings, selected)
-            st.markdown(
-                "<div style='font-size:0.8rem;font-weight:700;color:#92400e;"
-                "margin:0.35rem 0 0.2rem'>⚡ Tasks due</div>",
-                unsafe_allow_html=True,
-            )
-            if actions:
-                for a in actions:
-                    text   = normalize_value(a.get("text"), "Untitled task")
-                    owner  = normalize_value(a.get("owner"), "Not stated")
-                    status = normalize_status(a)
-                    mtitle = a.get("_meeting_title", "")
-                    st.markdown(
-                        f"<div style='background:#fffbeb;border:1px solid #fcd34d;"
-                        f"border-radius:8px;padding:0.35rem 0.6rem;margin-bottom:0.25rem;"
-                        f"font-size:0.85rem'>"
-                        f"<strong>{text}</strong><br>"
-                        f"<span style='color:#6e7f96;font-size:0.78rem'>"
-                        f"{mtitle} · {owner} · {status}</span></div>",
-                        unsafe_allow_html=True,
-                    )
-            else:
-                st.caption("No tasks found for this date.")
+    if is_d:
+        actions = get_actions_due_on_date(meetings, selected)
+        st.markdown(
+            "<div style='font-size:0.8rem;font-weight:700;color:#92400e;"
+            "margin:0.35rem 0 0.2rem'>⚡ Tasks due</div>",
+            unsafe_allow_html=True,
+        )
+        if actions:
+            for a in actions:
+                text   = normalize_value(a.get("text"), "Untitled task")
+                owner  = normalize_value(a.get("owner"), "Not stated")
+                status = normalize_status(a)
+                mtitle = a.get("_meeting_title", "")
+                st.markdown(
+                    f"<div style='background:#fffbeb;border:1px solid #fcd34d;"
+                    f"border-radius:8px;padding:0.35rem 0.6rem;margin-bottom:0.25rem;"
+                    f"font-size:0.85rem'>"
+                    f"<strong>{text}</strong><br>"
+                    f"<span style='color:#6e7f96;font-size:0.78rem'>"
+                    f"{mtitle} · {owner} · {status}</span></div>",
+                    unsafe_allow_html=True,
+                )
+        else:
+            st.caption("No tasks found for this date.")
