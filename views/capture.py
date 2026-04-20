@@ -28,13 +28,15 @@ def _clear_all_inputs() -> None:
     """Reset every capture form field back to defaults."""
     keys = [
         "cap_category", "cap_title", "cap_date", "cap_type", "cap_org",
-        "cap_activity_id", "_cap_id_val", "cap_depts", "cap_updated_by", "cap_stakeholders",
+        "cap_depts", "cap_updated_by", "cap_stakeholders",
         "cap_mode", "cap_translate", "cap_audio_upload", "cap_audio_record",
         "cap_docs", "cap_transcript", "cap_transcript_editor",
         "pending_result",
     ]
     for k in keys:
         st.session_state.pop(k, None)
+    # Reset ID field to empty (don't pop — we always read it via _cap_id_val)
+    st.session_state._cap_id_val = ""
 
 
 def render() -> None:
@@ -55,35 +57,36 @@ def render() -> None:
         activity_type = st.selectbox("Meeting type", ACTIVITY_TYPE_OPTIONS, key="cap_type")
         organization_type = st.selectbox("Organization type", ORGANIZATION_TYPE_OPTIONS, key="cap_org")
 
-    # ----- Activity ID — own full-width row to avoid nested-column button issues -----
+    # ----- Activity ID — own full-width row; keyless input avoids session-state conflict -----
     if "_cap_id_val" not in st.session_state:
         st.session_state._cap_id_val = ""   # starts empty; user types or generates
 
     def _gen_id_callback():
-        """on_click runs BEFORE re-render so the widget key can be safely deleted."""
+        """on_click fires BEFORE re-render — safe to update _cap_id_val here."""
         from datetime import date as _date
         cat  = st.session_state.get("cap_category", "Internal Meeting")
         dt   = st.session_state.get("cap_date", _date.today())
         mtgs = st.session_state.get("meetings", [])
         st.session_state._cap_id_val = generate_activity_id(cat, dt, mtgs)
-        st.session_state.pop("cap_activity_id", None)   # force re-init from value=
 
     id_col, btn_col = st.columns([4, 1])
     with id_col:
+        # No key= on this text_input so Streamlit doesn't write-back and conflict
+        # with _cap_id_val on the same rerun. We persist user typing manually.
         activity_id = st.text_input(
             "Activity ID",
             value=st.session_state._cap_id_val,
             placeholder="Type your own ID, or click Generate ID →",
-            key="cap_activity_id",
         )
+        st.session_state._cap_id_val = activity_id   # keep in sync with user edits
     with btn_col:
-        st.write("")   # label-height spacer
+        st.markdown("<div style='height:1.9rem'></div>", unsafe_allow_html=True)
         st.button("Generate ID", key="cap_gen_id",
                   on_click=_gen_id_callback, use_container_width=True)
 
     departments = st.multiselect("Departments involved", DEFAULT_DEPARTMENTS, key="cap_depts")
-    updated_by = st.text_input("Report by", key="cap_updated_by")
     stakeholders_raw = st.text_input("Stakeholders (comma-separated)", key="cap_stakeholders")
+    updated_by = st.text_input("Report by", key="cap_updated_by")
 
     # ----- Audio / transcript -----
     st.markdown("### Transcript")
