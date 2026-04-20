@@ -136,6 +136,32 @@ section[data-testid="stSidebar"] .stButton > button {
 }
 .summary-section-body { color: var(--text); font-size: 0.98rem; }
 
+/* Wide hero KPI card (used at the top of the dashboard) */
+.kpi-wide {
+    background: linear-gradient(135deg, #E2CAD8 0%, #87A7D0 100%);
+    border: 1px solid #c9d4e7;
+    border-radius: 20px;
+    padding: 1.15rem 1.4rem;
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    box-shadow: 0 14px 28px rgba(15, 23, 42, 0.08);
+}
+.kpi-wide .kpi-wide-label {
+    color: var(--brand);
+    font-weight: 700;
+    font-size: 1.05rem;
+    text-transform: none;
+    letter-spacing: normal;
+}
+.kpi-wide .kpi-wide-value {
+    color: var(--brand);
+    font-size: 2.4rem;
+    font-weight: 800;
+    line-height: 1;
+}
+
 /* KPI cards */
 .kpi-card { padding: 1rem 1.05rem; min-height: 108px; }
 .kpi-label {
@@ -166,7 +192,7 @@ section[data-testid="stSidebar"] .stButton > button {
 .action-meta { color: var(--text-muted); font-size: 0.92rem; }
 .action-subtle { color: var(--text-soft); font-size: 0.9rem; }
 
-/* Inputs */
+/* Buttons */
 .stButton button {
     background: var(--brand);
     color: #ffffff;
@@ -174,8 +200,66 @@ section[data-testid="stSidebar"] .stButton > button {
     border-radius: 12px;
     padding: 0.55rem 0.9rem;
 }
-.stTextInput input, .stNumberInput input, .stTextArea textarea,
-.stSelectbox div[data-baseweb="select"] { border-radius: 12px !important; }
+
+/* Labels — make sure they're visible on the light panel */
+.stTextInput label, .stTextArea label, .stSelectbox label,
+.stDateInput label, .stNumberInput label, .stMultiSelect label,
+.stRadio label, .stFileUploader label, .stCheckbox label {
+    color: var(--text) !important;
+    font-weight: 600 !important;
+    opacity: 1 !important;
+}
+.stRadio div[role="radiogroup"] label,
+.stRadio div[role="radiogroup"] p {
+    color: var(--text-muted) !important;
+}
+
+/* Inputs — light background, dark text */
+.stTextInput input,
+.stTextArea textarea,
+.stNumberInput input,
+.stDateInput input,
+.stSelectbox div[data-baseweb="select"] > div,
+.stMultiSelect div[data-baseweb="select"] > div {
+    background: #ffffff !important;
+    color: var(--text) !important;
+    caret-color: var(--text) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 12px !important;
+}
+.stTextInput input::placeholder,
+.stTextArea textarea::placeholder,
+.stNumberInput input::placeholder {
+    color: #94a3b8 !important;
+}
+
+/* Dropdown menu panel (selectbox/multiselect options) */
+div[data-baseweb="popover"] [role="option"],
+div[data-baseweb="popover"] li {
+    color: var(--text) !important;
+    background: #ffffff !important;
+}
+div[data-baseweb="popover"] [role="option"]:hover,
+div[data-baseweb="popover"] li:hover {
+    background: var(--surface-soft) !important;
+}
+
+/* Multiselect selected tags */
+.stMultiSelect div[data-baseweb="tag"] {
+    background: var(--soft-blush) !important;
+    color: var(--brand) !important;
+}
+
+/* Focus ring */
+.stTextInput input:focus, .stTextArea textarea:focus,
+.stNumberInput input:focus, .stDateInput input:focus {
+    outline: 3px solid rgba(135, 167, 208, 0.35) !important;
+    outline-offset: 1px;
+}
+
+/* Section headers inside the main panel */
+h2, h3, h4 { color: var(--text) !important; letter-spacing: -0.01em; }
+.stMarkdown p, .stMarkdown li, .stCaption { color: var(--text-muted) !important; }
 
 /* Chat bubbles */
 .chat-thread {
@@ -220,29 +304,30 @@ section[data-testid="stSidebar"] .stButton > button {
 .dashboard-title { font-size: 1.55rem; font-weight: 800; color: var(--text); margin: 0 0 0.2rem; }
 .dashboard-copy { color: var(--text-soft); font-size: 0.96rem; margin: 0; }
 
-/* Calendar widget */
-.calendar-widget { margin-top: 0.6rem; }
+/* Calendar widget (compact) */
+.calendar-widget { margin-top: 0.3rem; }
 .calendar-grid {
     display: grid;
     grid-template-columns: repeat(7, minmax(0, 1fr));
-    gap: 0.42rem;
+    gap: 0.25rem;
 }
-.calendar-head { margin-bottom: 0.45rem; }
+.calendar-head { margin-bottom: 0.3rem; }
 .calendar-day-label {
     text-align: center;
     color: var(--text-soft);
-    font-size: 0.78rem;
+    font-size: 0.66rem;
     font-weight: 700;
     text-transform: uppercase;
 }
 .calendar-day {
     aspect-ratio: 1 / 1;
-    border-radius: 16px;
+    border-radius: 10px;
     display: grid;
     place-items: center;
     background: #f5f6fa;
     color: var(--text);
     font-weight: 700;
+    font-size: 0.82rem;
     border: 1px solid #dbe2ed;
 }
 .calendar-day.empty { background: transparent; border-color: transparent; }
@@ -254,35 +339,59 @@ section[data-testid="stSidebar"] .stButton > button {
     box-shadow: inset 0 0 0 2px #facc15;
 }
 
-/* Upcoming items */
-.upcoming-item {
-    padding: 0.85rem 0.95rem;
-    border-radius: 16px;
-    background: #f8f6fb;
-    border: 1px solid #ddd5e5;
-    margin-top: 0.7rem;
+/* Upcoming task cards (rich style — see dashboard) */
+.upcoming-card {
+    background: #ffffff;
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 1rem 1.05rem;
+    margin-bottom: 1rem;
+    box-shadow: 0 10px 22px rgba(14, 27, 72, 0.06);
 }
-.upcoming-title {
-    font-weight: 800;
+.upcoming-header {
+    background: linear-gradient(135deg, #f3e8f4 0%, #e8eef8 100%);
+    border: 1px solid #e5d9e9;
+    border-radius: 14px;
+    padding: 0.7rem 0.9rem;
+    margin-bottom: 0.85rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: start;
+    gap: 0.8rem;
+}
+.upcoming-report-by {
     color: var(--brand);
-    font-size: 1rem;
+    font-weight: 700;
+    font-size: 0.95rem;
     margin-bottom: 0.15rem;
 }
+.upcoming-meta {
+    color: var(--text-soft);
+    font-size: 0.82rem;
+}
 .upcoming-date {
-    padding: 0.45rem 0.55rem;
-    border-radius: 14px;
+    padding: 0.45rem 0.7rem;
+    border-radius: 12px;
     background: linear-gradient(135deg, #E2CAD8, #87A7D0);
     color: var(--brand);
     text-align: center;
     font-weight: 800;
     font-size: 0.82rem;
-    min-width: 74px;
+    min-width: 92px;
+    white-space: nowrap;
 }
-.upcoming-top {
-    display: flex;
-    justify-content: space-between;
-    gap: 0.75rem;
-    align-items: start;
+.upcoming-summary {
+    color: var(--text);
+    font-size: 0.95rem;
+    line-height: 1.5;
+    margin: 0 0 0.7rem;
+}
+.upcoming-summary strong { color: var(--brand); }
+.upcoming-section-title {
+    color: var(--text);
+    font-size: 1rem;
+    font-weight: 700;
+    margin: 0.4rem 0 0.5rem;
 }
 
 /* Expanders */
