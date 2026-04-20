@@ -1,6 +1,10 @@
 """Reusable UI components.
 
 Each function renders a self-contained widget. No page-level state.
+
+IMPORTANT: All st.markdown HTML must be passed as a single stripped string.
+Multi-line indented f-strings cause Streamlit's markdown parser to treat the
+content as a preformatted code block, even with unsafe_allow_html=True.
 """
 from datetime import date, datetime
 
@@ -23,26 +27,21 @@ from utils.helpers import (
 # ------------------------------------------------------------------
 def kpi_card(title: str, value: str, subtitle: str, accent: str = "#0f766e") -> None:
     st.markdown(
-        f"""
-        <div class='kpi-card'>
-            <div class='kpi-label'>{title}</div>
-            <div class='kpi-value' style='color:{accent}'>{value}</div>
-            <div class='kpi-subtitle'>{subtitle}</div>
-        </div>
-        """,
+        f"<div class='kpi-card'>"
+        f"<div class='kpi-label'>{title}</div>"
+        f"<div class='kpi-value' style='color:{accent}'>{value}</div>"
+        f"<div class='kpi-subtitle'>{subtitle}</div>"
+        f"</div>",
         unsafe_allow_html=True,
     )
 
 
 def kpi_wide(label: str, value: str) -> None:
-    """Full-width hero KPI card used at the top of the dashboard."""
     st.markdown(
-        f"""
-        <div class='kpi-wide'>
-            <div class='kpi-wide-label'>{label}</div>
-            <div class='kpi-wide-value'>{value}</div>
-        </div>
-        """,
+        f"<div class='kpi-wide'>"
+        f"<div class='kpi-wide-label'>{label}</div>"
+        f"<div class='kpi-wide-value'>{value}</div>"
+        f"</div>",
         unsafe_allow_html=True,
     )
 
@@ -50,16 +49,12 @@ def kpi_wide(label: str, value: str) -> None:
 def completion_ring(percent: int) -> None:
     safe = max(0, min(int(percent), 100))
     st.markdown(
-        f"""
-        <div class='completion-card'>
-            <div class='kpi-label'>Completion</div>
-            <div class='completion-wrap'>
-                <div class='completion-ring' style='--pct:{safe};'>
-                    <div class='completion-inner'>{safe}%</div>
-                </div>
-            </div>
-        </div>
-        """,
+        f"<div class='completion-card'>"
+        f"<div class='kpi-label'>Completion</div>"
+        f"<div class='completion-wrap'>"
+        f"<div class='completion-ring' style='--pct:{safe};'>"
+        f"<div class='completion-inner'>{safe}%</div>"
+        f"</div></div></div>",
         unsafe_allow_html=True,
     )
 
@@ -73,25 +68,20 @@ def action_card(
     persist_callback=None,
     meeting_date: str = "",
 ) -> None:
-    """Render a single action item with smart nudge flags.
-
-    Args:
-        action:           The action item dict.
-        editable:         When True, show status + deadline controls.
-        persist_callback: Called whenever a field is changed.
-        meeting_date:     ISO date string of the meeting (used for stale-pending nudge).
-    """
+    """Render a single action item with smart nudge flags."""
     status = normalize_status(action)
     cfg = STATUS_CFG.get(status, STATUS_CFG["Pending"])
     owner = normalize_value(action.get("owner"), "Not stated")
     department = normalize_value(action.get("department") or action.get("company"), "Not stated")
-    suggestion = action.get("suggestion", "")
+    suggestion = normalize_value(action.get("suggestion"), "No next-step suggestion generated.")
+    deadline_display = pretty_deadline(normalize_value(action.get("deadline"), "None"))
+    action_text = normalize_value(action.get("text"), "Untitled action")
 
-    # Build nudge pills
-    flags = nudge_flags(action, meeting_date)
+    # Build nudge pills HTML (single line, no indentation)
     nudge_html = ""
+    flags = nudge_flags(action, meeting_date)
     if flags:
-        pills_html = ""
+        pills = ""
         for f in flags:
             if "overdue" in f.lower():
                 cls = "nudge-overdue"
@@ -103,24 +93,21 @@ def action_card(
                 cls = "nudge-critical"
             else:
                 cls = "nudge-stale"
-            pills_html += f"<span class='nudge-pill {cls}'>{f}</span>"
-        nudge_html = f"<div class='nudge-bar'>{pills_html}</div>"
+            pills += f"<span class='nudge-pill {cls}'>{f}</span>"
+        nudge_html = f"<div class='nudge-bar'>{pills}</div>"
 
     st.markdown(
-        f"""
-        <div class='action-card'>
-            <div class='action-top'>
-                <div class='action-title'>{normalize_value(action.get('text'), 'Untitled action')}</div>
-                {pill(status, cfg['color'], cfg['bg'])}
-            </div>
-            {nudge_html}
-            <div class='action-meta'>
-                Assignee: {owner} &nbsp;|&nbsp; Department: {department} &nbsp;|&nbsp;
-                Deadline: {pretty_deadline(normalize_value(action.get('deadline'), 'None'))}
-            </div>
-            <div class='action-subtle'>{normalize_value(suggestion, 'No next-step suggestion generated.')}</div>
-        </div>
-        """,
+        f"<div class='action-card'>"
+        f"<div class='action-top'>"
+        f"<div class='action-title'>{action_text}</div>"
+        f"{pill(status, cfg['color'], cfg['bg'])}"
+        f"</div>"
+        f"{nudge_html}"
+        f"<div class='action-meta'>"
+        f"Assignee: {owner} &nbsp;|&nbsp; Department: {department} &nbsp;|&nbsp; Deadline: {deadline_display}"
+        f"</div>"
+        f"<div class='action-subtle'>{suggestion}</div>"
+        f"</div>",
         unsafe_allow_html=True,
     )
 
@@ -141,7 +128,7 @@ def action_card(
     mode = st.selectbox(
         "Deadline mode",
         ["No deadline", "Set deadline"],
-        index=0 if deadline_value in ("", "None") else 1,
+        index=0 if deadline_value in ("", "None", "Not stated") else 1,
         key=f"dl_mode_{action_id}",
     )
     try:
@@ -178,7 +165,6 @@ def chat_bubble(role: str, text: str) -> None:
 # Summary panel (shown after the pipeline runs)
 # ------------------------------------------------------------------
 def summary_panel(result: dict) -> None:
-    """Render the executive brief produced by run_pipeline()."""
     title = normalize_value(result.get("title"), "Untitled meeting")
     summary = normalize_value(result.get("summary"), "No summary generated.")
     objective = normalize_value(result.get("objective"), "Not provided")
@@ -197,17 +183,14 @@ def summary_panel(result: dict) -> None:
     people = [p for p in people if p]
 
     st.markdown(
-        f"""
-        <div class='hero-panel'>
-            <div class='hero-badge'>Executive Meeting Brief</div>
-            <h2>{title}</h2>
-            <p>{summary}</p>
-            <div class='hero-grid'>
-                <div><strong>Objective</strong><br>{objective}</div>
-                <div><strong>Follow-up</strong><br>{follow_up}</div>
-            </div>
-        </div>
-        """,
+        f"<div class='hero-panel'>"
+        f"<div class='hero-badge'>Executive Meeting Brief</div>"
+        f"<h2>{title}</h2>"
+        f"<p>{summary}</p>"
+        f"<div class='hero-grid'>"
+        f"<div><strong>Objective</strong><br>{objective}</div>"
+        f"<div><strong>Follow-up needed</strong><br>{follow_up}</div>"
+        f"</div></div>",
         unsafe_allow_html=True,
     )
 
@@ -223,36 +206,40 @@ def summary_panel(result: dict) -> None:
         _summary_section("People Involved", join_list(people))
 
 
-def upcoming_task_card(meeting: dict) -> None:
-    """Render a full meeting card with its pending action items.
+def _summary_section(title: str, body: str) -> None:
+    st.markdown(
+        f"<div class='summary-section'>"
+        f"<div class='summary-section-title'>{title}</div>"
+        f"<div class='summary-section-body'>{body}</div>"
+        f"</div>",
+        unsafe_allow_html=True,
+    )
 
-    Matches the Upcoming Tasks design: report-by header + date pill,
-    activity id line, summary paragraph, then every action item below.
-    """
+
+# ------------------------------------------------------------------
+# Upcoming task card (kept for backward compat; dashboard uses expanders)
+# ------------------------------------------------------------------
+def upcoming_task_card(meeting: dict) -> None:
     report_by = normalize_value(meeting.get("user_id") or meeting.get("updated_by"), "Not stated")
     meeting_date = normalize_value(meeting.get("date"), "TBD")
     activity_id = normalize_value(meeting.get("activityId") or meeting.get("meetingID"), "No ID")
-    department = normalize_value(
-        meeting.get("deptName") or meeting.get("department"), "No group"
-    )
+    department = normalize_value(meeting.get("deptName") or meeting.get("department"), "No group")
     summary = normalize_value(meeting.get("summary") or meeting.get("recaps"), "No summary yet.")
     title = normalize_value(meeting.get("title"), "Untitled meeting")
 
     st.markdown(
-        f"""
-        <div class='upcoming-card'>
-            <div class='upcoming-header'>
-                <div>
-                    <div class='upcoming-report-by'>Report by: {report_by}</div>
-                    <div class='upcoming-meta'>{activity_id} | {department}</div>
-                </div>
-                <div class='upcoming-date'>{meeting_date}</div>
-            </div>
-            <div style='font-weight:700;color:var(--text);margin-bottom:0.4rem'>{title}</div>
-            <p class='upcoming-summary'><strong>Summary:</strong> {summary}</p>
-            <div class='upcoming-section-title'>Action Items</div>
-        </div>
-        """,
+        f"<div class='upcoming-card'>"
+        f"<div class='upcoming-header'>"
+        f"<div>"
+        f"<div class='upcoming-report-by'>Report by: {report_by}</div>"
+        f"<div class='upcoming-meta'>{activity_id} | {department}</div>"
+        f"</div>"
+        f"<div class='upcoming-date'>{meeting_date}</div>"
+        f"</div>"
+        f"<div style='font-weight:700;color:var(--text);margin-bottom:0.4rem'>{title}</div>"
+        f"<p class='upcoming-summary'><strong>Summary:</strong> {summary}</p>"
+        f"<div class='upcoming-section-title'>Action Items</div>"
+        f"</div>",
         unsafe_allow_html=True,
     )
 
@@ -265,15 +252,3 @@ def upcoming_task_card(meeting: dict) -> None:
         return
     for a in actions:
         action_card(a)
-
-
-def _summary_section(title: str, body: str) -> None:
-    st.markdown(
-        f"""
-        <div class='summary-section'>
-            <div class='summary-section-title'>{title}</div>
-            <div class='summary-section-body'>{body}</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
