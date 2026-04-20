@@ -137,19 +137,26 @@ def _render_meeting(meeting: dict) -> None:
     email_open = f"followup_open_{meeting_id}"
 
     # ── Download PDF button ──────────────────────────────────────────
-    try:
-        from utils.export import generate_meeting_pdf
-        pdf_bytes = generate_meeting_pdf(meeting)
-        safe_title = "".join(c for c in normalize_value(meeting.get("title"), "meeting") if c.isalnum() or c in " _-")[:40].strip()
+    _pdf_cache_key = f"pdf_bytes_{meeting_id}"
+    if _pdf_cache_key not in st.session_state:
+        try:
+            from utils.export import generate_meeting_pdf
+            st.session_state[_pdf_cache_key] = generate_meeting_pdf(meeting)
+        except Exception as _e:
+            st.session_state[_pdf_cache_key] = b""
+            st.caption(f"PDF error: {_e}")
+    if st.session_state.get(_pdf_cache_key):
+        _safe_title = "".join(
+            c for c in normalize_value(meeting.get("title"), "meeting")
+            if c.isalnum() or c in " _-"
+        )[:40].strip()
         st.download_button(
             label="⬇ Download Brief (PDF)",
-            data=pdf_bytes,
-            file_name=f"{safe_title}.pdf",
+            data=st.session_state[_pdf_cache_key],
+            file_name=f"{_safe_title}.pdf",
             mime="application/pdf",
             key=f"dl_pdf_{meeting_id}",
         )
-    except Exception:
-        pass
 
     if st.button("📧 Copy Follow-Up Email", key=f"btn_email_{meeting_id}"):
         if st.session_state.get(email_open):
