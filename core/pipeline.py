@@ -202,6 +202,72 @@ def run_pipeline(transcript: str, metadata: dict | None = None) -> dict:
 
 
 # ------------------------------------------------------------------
+# Smart Follow-Up Email (AI-generated)
+# ------------------------------------------------------------------
+def generate_followup_email(meeting: dict) -> str:
+    """AI drafts a professional follow-up email for a meeting."""
+    from utils.helpers import join_list, normalize_status
+
+    title      = normalize_value(meeting.get("title"), "Meeting")
+    date_str   = normalize_value(meeting.get("date"), "")
+    summary    = normalize_value(meeting.get("summary"), "")
+    dept       = normalize_value(meeting.get("deptName") or meeting.get("department"), "")
+    report_by  = normalize_value(meeting.get("user_id") or meeting.get("updated_by"), "The Meeting Organizer")
+    decisions  = join_list(meeting.get("keyDecisions") or [], "None")
+    stakeholders = join_list(meeting.get("stakeholders") or [], "")
+
+    actions = meeting.get("actions") or []
+    action_lines = []
+    for a in actions:
+        if normalize_status(a) not in ("Done", "Cancelled"):
+            action_lines.append(
+                f"- {normalize_value(a.get('text'))} | Owner: {normalize_value(a.get('owner'), 'Not stated')} | Deadline: {normalize_value(a.get('deadline'), 'Not stated')}"
+            )
+
+    SYSTEM = (
+        "You are an executive assistant. Write a concise professional follow-up email after a meeting. "
+        "Use the exact format: start with 'Dear colleagues,', then a brief intro line, then "
+        "'MEETING RECAP', then Date, Meeting, Summary, Key Decisions, Action Items sections, "
+        "then 'Regards,' and the sender name. Keep it professional and concise."
+    )
+    user_msg = (
+        f"Meeting: {title}\nDate: {date_str}\nDepartment: {dept}\n"
+        f"Attendees/Stakeholders: {stakeholders}\n"
+        f"Summary: {summary}\nKey Decisions: {decisions}\n"
+        f"Pending Action Items:\n" + ("\n".join(action_lines) or "None") + f"\n"
+        f"Report by / Sender: {report_by}\n\n"
+        "Write the follow-up email now."
+    )
+    return call_ollama(SYSTEM, user_msg, max_tokens=600)
+
+
+# ------------------------------------------------------------------
+# Give Idea — AI project manager guidance for one action item
+# ------------------------------------------------------------------
+def get_action_idea(action: dict) -> str:
+    """AI acts as project manager and gives step-by-step guidance for an action item."""
+    SYSTEM = (
+        "You are a senior project manager. Given an unfinished action item, "
+        "provide 3-5 specific, practical next steps to help the team complete it. "
+        "Consider potential blockers, who to involve, and quick wins. "
+        "Be direct and actionable. Use a numbered list."
+    )
+    text     = normalize_value(action.get("text"), "Unknown task")
+    owner    = normalize_value(action.get("owner"), "Not stated")
+    dept     = normalize_value(action.get("department"), "Not stated")
+    deadline = normalize_value(action.get("deadline"), "None")
+    status   = normalize_value(action.get("status"), "Pending")
+
+    user_msg = (
+        f"Action item: {text}\n"
+        f"Owner: {owner} | Department: {dept}\n"
+        f"Deadline: {deadline} | Status: {status}\n\n"
+        "As project manager, give specific steps to get this done:"
+    )
+    return call_ollama(SYSTEM, user_msg, max_tokens=350)
+
+
+# ------------------------------------------------------------------
 # Chat / Q&A
 # ------------------------------------------------------------------
 def chat_with_meetings(question: str, meetings: list) -> str:
