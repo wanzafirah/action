@@ -122,15 +122,13 @@ def _render_digest(meetings: list) -> None:
                     owner_dept += f" · {row['department']}"
 
                 st.markdown(
-                    f"""
-                    <div class='digest-row'>
-                        <div>
-                            <div class='digest-row-text'>{row['text']}</div>
-                            <div class='digest-row-meta'>{row['meeting_title']} · {owner_dept}</div>
-                        </div>
-                        <span class='digest-row-badge' style='{badge_style}'>{badge_text}</span>
-                    </div>
-                    """,
+                    f"<div class='digest-row'>"
+                    f"<div>"
+                    f"<div class='digest-row-text'>{row['text']}</div>"
+                    f"<div class='digest-row-meta'>{row['meeting_title']} · {owner_dept}</div>"
+                    f"</div>"
+                    f"<span class='digest-row-badge' style='{badge_style}'>{badge_text}</span>"
+                    f"</div>",
                     unsafe_allow_html=True,
                 )
 
@@ -163,14 +161,11 @@ def _render_upcoming_detail(meeting: dict) -> None:
     summary = normalize_value(meeting.get("summary") or meeting.get("recaps"), "No summary yet.")
 
     st.markdown(
-        f"""
-        <div class='upcoming-header'>
-            <div>
-                <div class='upcoming-report-by'>Report by: {report_by}</div>
-                <div class='upcoming-meta'>{activity_id} | {department}</div>
-            </div>
-        </div>
-        """,
+        f"<div class='upcoming-header'>"
+        f"<div>"
+        f"<div class='upcoming-report-by'>Report by: {report_by}</div>"
+        f"<div class='upcoming-meta'>{activity_id} | {department}</div>"
+        f"</div></div>",
         unsafe_allow_html=True,
     )
     st.markdown(f"**Summary:** {summary}")
