@@ -215,6 +215,54 @@ def get_upcoming_meetings(meetings: list, limit: int = 4) -> list:
     return [m for _, m in candidates[:limit]]
 
 
+def get_meetings_on_date(meetings: list, target_date: str) -> list:
+    """Return meetings whose conducted date matches target_date (YYYY-MM-DD)."""
+    return [m for m in meetings if normalize_value(m.get("date"), "") == target_date]
+
+
+def get_actions_due_on_date(meetings: list, target_date: str) -> list:
+    """Return action items (with their meeting title) due on target_date."""
+    rows = []
+    for m in meetings:
+        for a in (m.get("actions") or []):
+            if normalize_value(a.get("deadline"), "") == target_date:
+                rows.append({**a, "_meeting_title": normalize_value(m.get("title"), "Untitled")})
+    return rows
+
+
+def get_all_active_meetings(meetings: list) -> list:
+    """Return all meetings that have at least one non-done action item.
+
+    Sorted so most-urgent (overdue / due soonest) meetings appear first.
+    """
+    from utils.helpers import days_left, normalize_status, normalize_value
+
+    candidates = []
+    for m in meetings:
+        actions = [
+            a for a in (m.get("actions") or [])
+            if normalize_status(a) not in ("Done", "Cancelled")
+        ]
+        if not actions:
+            continue
+
+        # Urgency key: minimum days_left across actions with deadlines
+        dl_values = []
+        for a in actions:
+            d = normalize_value(a.get("deadline"), "")
+            if d and d not in ("None", "Not stated"):
+                dl = days_left(d)
+                if dl is not None:
+                    dl_values.append(dl)
+
+        # Meetings with overdue/nearest deadlines first; no-deadline meetings last
+        urgency = min(dl_values) if dl_values else 9999
+        candidates.append((urgency, m))
+
+    candidates.sort(key=lambda t: t[0])
+    return [m for _, m in candidates]
+
+
 def get_digest_items(meetings: list) -> dict:
     """Categorise all non-done action items for the daily digest.
 
