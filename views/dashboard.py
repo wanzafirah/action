@@ -92,103 +92,63 @@ def _get_all_active_meetings(meetings: list) -> list:
 
 
 # ------------------------------------------------------------------
-# Unified Upcoming Tasks + Nudge Alerts — grouped by department
+# Upcoming Tasks — flat list of action items grouped by department
 # ------------------------------------------------------------------
 def _render_upcoming(meetings: list) -> None:
-    """Show ALL meetings with pending/in-progress/overdue actions, grouped by department."""
+    """Collect all non-done action items, group by department, render as cards."""
     from collections import defaultdict
-    from utils.helpers import nudge_flags
-
-    active = _get_all_active_meetings(meetings)
-
-    total_alerts = sum(
-        len(nudge_flags(a, normalize_value(m.get("date"), "")))
-        for m in active
-        for a in (m.get("actions") or [])
-        if normalize_status(a) not in ("Done", "Cancelled")
-    )
+    from ui.components import action_card
 
     st.markdown("#### Upcoming Tasks")
-    if total_alerts:
-        st.caption(f"🔴 {total_alerts} item(s) need attention")
-    else:
-        st.caption("✅ All clear")
 
-    if not active:
+    # Gather every non-done action item with its meeting context
+    action_rows = []
+    for m in meetings:
+        m_date = normalize_value(m.get("date"), "")
+        m_dept = normalize_value(m.get("deptName") or m.get("department"), "").strip()
+        if m_dept in ("None", "Not stated", "No group"):
+            m_dept = ""
+
+        for a in (m.get("actions") or []):
+            if normalize_status(a) in ("Done", "Cancelled"):
+                continue
+            # Action's own department takes priority; fall back to meeting's dept
+            a_dept = normalize_value(a.get("department") or a.get("company"), "").strip()
+            if a_dept in ("None", "Not stated", ""):
+                a_dept = m_dept
+            action_rows.append({"action": a, "dept": a_dept, "meeting_date": m_date})
+
+    if not action_rows:
         st.info("No pending actions. Add a meeting in Capture to see it here.")
         return
 
-    # Group meetings by department
+    # Group by department
     dept_map: dict = defaultdict(list)
-    for m in active:
-        dept = normalize_value(m.get("deptName") or m.get("department"), "").strip()
-        if dept in ("None", "Not stated", "No group", ""):
-            dept = ""
-        dept_map[dept].append(m)
+    for row in action_rows:
+        dept_map[row["dept"]].append(row)
 
     named_depts = sorted(k for k in dept_map if k)
 
-    # ── Named departments first ──────────────────────────────────────
     for dept in named_depts:
         st.markdown(
             f"<div style='font-size:0.82rem;font-weight:800;color:var(--brand-2);"
-            f"text-transform:uppercase;letter-spacing:0.07em;margin:0.8rem 0 0.3rem'>"
+            f"text-transform:uppercase;letter-spacing:0.06em;margin:0.9rem 0 0.25rem'>"
             f"🏢 {dept}</div>",
             unsafe_allow_html=True,
         )
-        for m in dept_map[dept]:
-            title = normalize_value(m.get("title"), "Untitled meeting")
-            meeting_date = normalize_value(m.get("date"), "")
-            label = f"{title}  ·  {meeting_date}" if meeting_date else title
-            with st.expander(label, expanded=False):
-                _render_upcoming_detail(m)
+        for row in dept_map[dept]:
+            action_card(row["action"], meeting_date=row["meeting_date"])
 
-    # ── Meetings with no department ──────────────────────────────────
     if "" in dept_map:
         if named_depts:
             st.markdown(
                 "<div style='font-size:0.82rem;font-weight:800;color:var(--text-soft);"
-                "text-transform:uppercase;letter-spacing:0.07em;margin:0.8rem 0 0.3rem'>"
+                "text-transform:uppercase;letter-spacing:0.06em;margin:0.9rem 0 0.25rem'>"
                 "📋 Other</div>",
                 unsafe_allow_html=True,
             )
-        for m in dept_map[""]:
-            title = normalize_value(m.get("title"), "Untitled meeting")
-            meeting_date = normalize_value(m.get("date"), "")
-            label = f"{title}  ·  {meeting_date}" if meeting_date else title
-            with st.expander(label, expanded=False):
-                _render_upcoming_detail(m)
-
-
-def _render_upcoming_detail(meeting: dict) -> None:
-    """Render full meeting detail inside the expander — same style as tracker."""
-    from ui.components import action_card
-
-    report_by = normalize_value(meeting.get("user_id") or meeting.get("updated_by"), "Not stated")
-    activity_id = normalize_value(meeting.get("activityId") or meeting.get("meetingID"), "No ID")
-    department = normalize_value(meeting.get("deptName") or meeting.get("department"), "No group")
-    summary = normalize_value(meeting.get("summary") or meeting.get("recaps"), "No summary yet.")
-
-    st.markdown(
-        f"<div class='upcoming-header'>"
-        f"<div>"
-        f"<div class='upcoming-report-by'>Report by: {report_by}</div>"
-        f"<div class='upcoming-meta'>{activity_id} | {department}</div>"
-        f"</div></div>",
-        unsafe_allow_html=True,
-    )
-    st.markdown(f"**Summary:** {summary}")
-    st.markdown("**Action Items**")
-
-    actions = [
-        a for a in (meeting.get("actions") or [])
-        if normalize_status(a) in {"Pending", "In Progress", "Overdue"}
-    ]
-    if not actions:
-        st.caption("No pending action items for this meeting.")
-    meeting_date = normalize_value(meeting.get("date"), "")
-    for a in actions:
-        action_card(a, meeting_date=meeting_date)
+        for row in dept_map[""]:
+            action_card(row["action"], meeting_date=row["meeting_date"])
 
 
 # ------------------------------------------------------------------
