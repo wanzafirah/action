@@ -74,7 +74,7 @@ def action_card(
     status = normalize_status(action)
     cfg = STATUS_CFG.get(status, STATUS_CFG["Pending"])
     _raw_owner = normalize_value(action.get("owner"), "")
-    department = normalize_value(action.get("department") or action.get("company"), "Not stated")
+    _raw_dept  = normalize_value(action.get("department") or action.get("company"), "")
     # If owner looks like an organisation (contains org-like words, or matches the department),
     # treat it as "Not stated" — a person's name should not contain these keywords.
     _org_keywords = ("team", "corp", "sdn", "bhd", "ltd", "inc", "department",
@@ -85,9 +85,13 @@ def action_card(
         not _raw_owner
         or _raw_owner == "Not stated"
         or any(kw in _owner_lower for kw in _org_keywords)
-        or _raw_owner.lower() == department.lower()
+        or _raw_owner.lower() == _raw_dept.lower()
     )
     owner = "Not stated" if _is_org else _raw_owner
+    # If department is just the company name (talentcorp / talent corp / tc), show "Not stated"
+    _dept_lower = _raw_dept.lower().strip()
+    _vague_depts = {"talentcorp", "talent corp", "tc", "talentcorp malaysia", "not stated", "none", ""}
+    department = "Not stated" if _dept_lower in _vague_depts else (_raw_dept or "Not stated")
     deadline_display = pretty_deadline(normalize_value(action.get("deadline"), "None"))
     action_text = normalize_value(action.get("text"), "Untitled action")
 
@@ -95,7 +99,7 @@ def action_card(
     mtitle_html = ""
     if meeting_title:
         mtitle_html = (f"<div style='font-size:0.74rem;color:var(--text-soft);"
-                       f"margin-bottom:0.2rem'>📋 {meeting_title}</div>")
+                       f"margin-bottom:0.2rem'>Meeting: {meeting_title}</div>")
 
     # Build nudge pills HTML
     nudge_html = ""
@@ -146,7 +150,7 @@ def action_card(
     # ── Give Idea button (AI project manager guidance) ───────────────
     idea_key  = f"idea_{action_id}"
     idea_open = f"idea_open_{action_id}"
-    if st.button("💡 Give Idea", key=f"btn_idea_{action_id}", use_container_width=False):
+    if st.button("Give Idea", key=f"btn_idea_{action_id}", use_container_width=False):
         if st.session_state.get(idea_open):
             # Toggle off
             st.session_state.pop(idea_key, None)
@@ -171,36 +175,66 @@ def action_card(
         st.markdown(
             f"<div style='background:#f0fdf4;border:1px solid #86efac;border-radius:12px;"
             f"padding:0.7rem 0.9rem;margin:0.3rem 0 0.5rem;font-size:0.88rem;color:#14532d'>"
-            f"<strong>💡 Guidance</strong><br><br>"
+            f"<strong>Guidance</strong><br><br>"
             f"{_clean_idea.replace(chr(10), '<br>')}"
             f"</div>",
             unsafe_allow_html=True,
         )
-    current = action.get("status", "Pending")
-    new_status = st.selectbox(
-        "Update status",
-        STATUSES,
-        index=STATUSES.index(current) if current in STATUSES else 0,
-        key=f"status_{action_id}",
-        label_visibility="collapsed",
-    )
+    # ── Editable fields (2-column layout) ───────────────────────────
+    col_edit1, col_edit2 = st.columns(2)
 
-    deadline_value = normalize_value(action.get("deadline"), "")
-    mode = st.selectbox(
-        "Deadline mode",
-        ["No deadline", "Set deadline"],
-        index=0 if deadline_value in ("", "None", "Not stated") else 1,
-        key=f"dl_mode_{action_id}",
-    )
+    with col_edit1:
+        current = action.get("status", "Pending")
+        new_status = st.selectbox(
+            "Status",
+            STATUSES,
+            index=STATUSES.index(current) if current in STATUSES else 0,
+            key=f"status_{action_id}",
+        )
+
+    with col_edit2:
+        _cur_owner = action.get("owner", "")
+        if _cur_owner in ("Not stated", "None"):
+            _cur_owner = ""
+        new_owner = st.text_input(
+            "Assignee",
+            value=_cur_owner,
+            key=f"owner_{action_id}",
+            placeholder="Person's name",
+        )
+
+    col_edit3, col_edit4 = st.columns(2)
+
+    with col_edit3:
+        _cur_dept = action.get("department") or action.get("company") or ""
+        if _cur_dept in ("Not stated", "None", "TalentCorp", "Talent Corp", "TC"):
+            _cur_dept = ""
+        new_dept = st.text_input(
+            "Department",
+            value=_cur_dept,
+            key=f"dept_{action_id}",
+            placeholder="e.g. Group Digital",
+        )
+
+    with col_edit4:
+        deadline_value = normalize_value(action.get("deadline"), "")
+        mode = st.selectbox(
+            "Deadline",
+            ["No deadline", "Set deadline"],
+            index=0 if deadline_value in ("", "None", "Not stated") else 1,
+            key=f"dl_mode_{action_id}",
+        )
+
     try:
         default_deadline = datetime.strptime(deadline_value, "%Y-%m-%d").date()
     except Exception:
         default_deadline = date.today()
     edited = st.date_input(
-        "Deadline",
+        "Deadline date",
         value=default_deadline,
         key=f"dl_{action_id}",
         disabled=mode == "No deadline",
+        label_visibility="collapsed",
     )
     new_deadline = "None" if mode == "No deadline" else edited.isoformat()
 
@@ -210,6 +244,15 @@ def action_card(
         changed = True
     if new_deadline != normalize_value(action.get("deadline"), "None"):
         action["deadline"] = new_deadline
+        changed = True
+    _saved_owner = new_owner.strip() or "Not stated"
+    if _saved_owner != normalize_value(action.get("owner"), "Not stated"):
+        action["owner"] = _saved_owner
+        changed = True
+    _saved_dept = new_dept.strip() or "Not stated"
+    if _saved_dept != normalize_value(action.get("department") or action.get("company"), "Not stated"):
+        action["department"] = _saved_dept
+        action["company"]    = _saved_dept
         changed = True
     if changed and persist_callback:
         persist_callback()
