@@ -8,23 +8,23 @@ import streamlit as st
 
 from utils.helpers import normalize_status, normalize_value
 
-# Brand palette
-_C_BRAND    = "#0E1B48"
-_C_BRAND2   = "#27425D"
-_C_ACCENT   = "#87A7D0"
-_C_PINK     = "#C18DB4"
-_C_BLUSH    = "#E2CAD8"
-_C_GREEN    = "#22c55e"
-_C_AMBER    = "#f59e0b"
-_C_RED      = "#ef4444"
-_C_BLUE     = "#3b82f6"
-_C_GREY     = "#9ca3af"
+# Brand palette — matches image 3 colour reference
+_C_BRAND    = "#364C84"   # dark navy blue
+_C_BRAND2   = "#364C84"
+_C_ACCENT   = "#95B1EE"   # periwinkle blue
+_C_LIGHT_GREEN = "#E7F1A8"  # light yellow-green
+_C_CREAM    = "#FFFDF5"   # base white / cream
+_C_GREEN    = "#E7F1A8"   # light green (done/completed)
+_C_AMBER    = "#f59e0b"   # keep amber for overdue-adjacent
+_C_RED      = "#ef4444"   # keep red for overdue
+_C_BLUE     = "#95B1EE"   # light blue for in-progress
+_C_GREY     = "#9ca3af"   # cancelled
 
 STATUS_COLORS = {
-    "Pending":     _C_AMBER,
-    "In Progress": _C_BLUE,
-    "Done":        _C_GREEN,
-    "Overdue":     _C_RED,
+    "Pending":     _C_ACCENT,      # periwinkle blue
+    "In Progress": _C_BRAND,       # dark navy
+    "Done":        _C_LIGHT_GREEN, # light green
+    "Overdue":     _C_RED,         # red
     "Cancelled":   _C_GREY,
 }
 
@@ -153,7 +153,7 @@ def render() -> None:
             fig = go.Figure(go.Bar(
                 x=sorted_keys,
                 y=[month_counts[k] for k in sorted_keys],
-                marker_color=_C_BRAND2,
+                marker_color=_C_BRAND,
                 marker_line_width=0,
                 hovertemplate="%{x}: <b>%{y} meeting(s)</b><extra></extra>",
             ))
@@ -208,7 +208,7 @@ def render() -> None:
             # Truncate long dept names (take first item before comma, max 32 chars)
             depts  = [x[0].split(",")[0].strip()[:32] for x in top]
             values = [x[1] for x in top]
-            colors_bar = [_C_GREEN if v >= 75 else _C_ACCENT if v >= 40 else _C_PINK for v in values]
+            colors_bar = [_C_LIGHT_GREEN if v >= 75 else _C_ACCENT if v >= 40 else _C_RED for v in values]
             fig3 = go.Figure(go.Bar(
                 x=values, y=depts,
                 orientation="h",
@@ -243,7 +243,7 @@ def render() -> None:
             # Truncate long names just in case
             names  = [x[0][:28] for x in top_p]
             counts = [x[1] for x in top_p]
-            bar_colors = [_C_RED if c >= 5 else _C_AMBER if c >= 3 else _C_ACCENT for c in counts]
+            bar_colors = [_C_BRAND if c >= 5 else _C_ACCENT if c >= 3 else _C_LIGHT_GREEN for c in counts]
             fig4 = go.Figure(go.Bar(
                 x=counts, y=names,
                 orientation="h",
@@ -274,7 +274,7 @@ def render() -> None:
             values = list(cat_counts.values())
             fig5 = go.Figure(go.Bar(
                 x=labels, y=values,
-                marker_color=_C_BRAND,
+                marker_color=_C_ACCENT,
                 marker_line_width=0,
                 text=values,
                 textposition="outside",
@@ -290,7 +290,7 @@ def render() -> None:
         fig6 = go.Figure(go.Pie(
             labels=["Follow-up needed", "Closed"],
             values=[fu_yes, fu_no],
-            marker_colors=[_C_AMBER, _C_GREEN],
+            marker_colors=[_C_ACCENT, _C_LIGHT_GREEN],
             hole=0.55,
             textinfo="percent+label",
             textfont_size=12,
