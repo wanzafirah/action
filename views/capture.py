@@ -40,6 +40,7 @@ def _clear_all_inputs() -> None:
         "cap_mode", "cap_translate", "cap_audio_upload", "cap_audio_record",
         "cap_docs", "cap_ext_excel",
         "cap_transcript",
+        "cap_ext_stakeholders",
         "pending_result", "cap_email_draft", "cap_email_ta",
         "cap_pdf_bytes", "cap_pdf_title",
     ]:
