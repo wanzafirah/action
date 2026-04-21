@@ -110,7 +110,21 @@ def transcribe_audio_file(uploaded_file, translate_to_english: bool = True) -> s
 
     try:
         task = "translate" if translate_to_english else "transcribe"
-        segments, _info = model.transcribe(tmp.name, task=task, vad_filter=True)
+        # beam_size=5 gives better accuracy for mixed-language (Malay-English) audio.
+        # language=None lets Whisper auto-detect the language per segment.
+        # initial_prompt nudges Whisper to handle Malaysian/Malay-English code-switching.
+        initial_prompt = (
+            "The following is a meeting recording in Malaysian English or Bahasa Malaysia, "
+            "or a mixture of both languages."
+        )
+        segments, _info = model.transcribe(
+            tmp.name,
+            task=task,
+            vad_filter=True,
+            beam_size=5,
+            language=None,
+            initial_prompt=initial_prompt,
+        )
         text = " ".join(segment.text.strip() for segment in segments if segment.text.strip())
         return text.strip()
     finally:
