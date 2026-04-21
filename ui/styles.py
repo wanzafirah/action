@@ -237,7 +237,7 @@ div[data-testid="stDownloadButton"] > button * {
 .stFileUploader label,
 .stFileUploader [data-testid="stFileUploaderDropzone"] p,
 .stFileUploader [data-testid="stFileUploaderDropzone"] small {
-    color: var(--text) !important;
+    color: #000000 !important;
 }
 .stFileUploader [data-testid="stFileUploaderDropzone"] {
     background: #ffffff !important;
