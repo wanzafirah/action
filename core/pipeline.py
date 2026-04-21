@@ -277,6 +277,7 @@ def chat_with_meetings(question: str, meetings: list) -> str:
     blocks = []
     for m in meetings:
         actions = m.get("actions", []) or []
+        overdue_actions = [a for a in actions if normalize_status(a) == "Overdue"]
         action_lines = [
             f"  [{normalize_status(a)}] {normalize_value(a.get('text'))} "
             f"| owner: {normalize_value(a.get('owner'), 'Not stated')} "
@@ -289,10 +290,13 @@ def chat_with_meetings(question: str, meetings: list) -> str:
             f"  {s.get('name','')} | {s.get('position','')} | {s.get('organisation','')} | {s.get('phone','')} | {s.get('email','')}"
             for s in ext_stk if s.get("name")
         ]
+        # Flag meetings that have overdue items so the LLM can find them easily
+        overdue_flag = f"HAS OVERDUE ACTIONS: YES ({len(overdue_actions)} overdue)" if overdue_actions else "HAS OVERDUE ACTIONS: NO"
         blocks.append("\n".join(filter(None, [
             "--- Meeting ---",
             f"Date: {m.get('date', '')}",
             f"Title: {m.get('title', '')}",
+            overdue_flag,
             f"TC Members: {join_list(m.get('stakeholders', []), 'None')}",
             f"External Stakeholders: {chr(10).join(ext_lines) if ext_lines else 'None'}",
             f"Summary: {normalize_value(m.get('summary') or m.get('recaps'), 'No summary.')}",
