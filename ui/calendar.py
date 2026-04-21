@@ -65,11 +65,6 @@ def render(meetings: list) -> None:
     if not show:
         return
 
-    st.markdown(
-        "<div style='font-size:0.75rem;color:#6e7f96;margin-bottom:0.3rem'>"
-        "📋 = meeting held &nbsp;&nbsp; 🔔 = deadline due &nbsp;— press a date below</div>",
-        unsafe_allow_html=True,
-    )
 
     MAX_COLS = 7
     rows = [all_highlighted[i:i+MAX_COLS] for i in range(0, len(all_highlighted), MAX_COLS)]
@@ -80,11 +75,11 @@ def render(meetings: list) -> None:
             is_m = day_num in conducted
             is_d = day_num in pending
             if is_m and is_d:
-                label = f"📋🔔 {day_num}"
+                label = f"{day_num}"
             elif is_m:
-                label = f"📋 {day_num}"
+                label = f"{day_num}"
             else:
-                label = f"🔔 {day_num}"
+                label = f"{day_num}"
 
             date_iso = date(year, month, day_num).isoformat()
             selected = st.session_state.get("cal_selected")
