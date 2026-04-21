@@ -271,11 +271,10 @@ def get_action_idea(action: dict) -> str:
 # Chat / Q&A
 # ------------------------------------------------------------------
 def chat_with_meetings(question: str, meetings: list) -> str:
-    """Answer a question grounded in ALL stored meeting data."""
+    """Answer a question grounded in ALL stored meeting data and stakeholder directory."""
     from utils.helpers import join_list, normalize_status
 
     blocks = []
-    # Include ALL meetings (not capped at 8) for accurate counting
     for m in meetings:
         actions = m.get("actions", []) or []
         action_lines = [
@@ -284,24 +283,48 @@ def chat_with_meetings(question: str, meetings: list) -> str:
             f"| deadline: {normalize_value(a.get('deadline'), 'Not stated')}"
             for a in actions
         ]
-        blocks.append("\n".join([
-            f"--- Meeting ---",
+        # Include external stakeholders attached to this meeting
+        ext_stk = m.get("externalStakeholders") or []
+        ext_lines = [
+            f"  {s.get('name','')} | {s.get('position','')} | {s.get('organisation','')} | {s.get('phone','')} | {s.get('email','')}"
+            for s in ext_stk if s.get("name")
+        ]
+        blocks.append("\n".join(filter(None, [
+            "--- Meeting ---",
             f"Date: {m.get('date', '')}",
             f"Title: {m.get('title', '')}",
-            f"Stakeholders: {join_list(m.get('stakeholders', []), 'None')}",
+            f"TC Members: {join_list(m.get('stakeholders', []), 'None')}",
+            f"External Stakeholders: {chr(10).join(ext_lines) if ext_lines else 'None'}",
             f"Summary: {normalize_value(m.get('summary') or m.get('recaps'), 'No summary.')}",
             f"Total action items: {len(actions)}",
             "Action items:" if action_lines else "Action items: None",
             "\n".join(action_lines) if action_lines else "",
-        ]))
+        ])))
 
-    context = "\n\n".join(blocks) if blocks else "No meeting data available."
+    meeting_context = "\n\n".join(blocks) if blocks else "No meeting data available."
+
+    # Include the global external stakeholder directory
+    try:
+        from core.stakeholder_db import load_external_stakeholders
+        all_stk = load_external_stakeholders()
+        if all_stk:
+            stk_lines = [
+                f"  {s.get('name','')} | Position: {s.get('position','')} | Organisation: {s.get('organisation','')} | Phone: {s.get('phone','')} | Email: {s.get('email','')} | Added: {s.get('date_added','')}"
+                for s in all_stk
+            ]
+            stk_context = "--- Stakeholder Directory ---\n" + "\n".join(stk_lines)
+        else:
+            stk_context = "--- Stakeholder Directory ---\nNo external stakeholders recorded."
+    except Exception:
+        stk_context = ""
+
+    full_context = meeting_context + ("\n\n" + stk_context if stk_context else "")
 
     from config.constants import CHAT_SYSTEM
     user_msg = (
-        f"IMPORTANT: There are {len(meetings)} meeting(s) total in the data below. "
-        f"Read ALL of them carefully before answering.\n\n"
-        f"Meeting data:\n{context}\n\n"
+        f"IMPORTANT: There are {len(meetings)} meeting(s) total. "
+        f"A stakeholder directory is also included below — use it to answer questions about contacts, organisations, and people.\n\n"
+        f"Data:\n{full_context}\n\n"
         f"Question: {question}"
     )
     return call_ollama(CHAT_SYSTEM, user_msg, max_tokens=500)
