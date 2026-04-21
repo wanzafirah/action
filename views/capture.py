@@ -19,7 +19,7 @@ from core.services import (
 from core.stakeholder_db import upsert_stakeholders_from_meeting
 from ui.components import action_card, summary_panel
 from utils.helpers import generate_activity_id, uid
-from utils.tc_staff import get_tc_names
+from utils.tc_staff import get_tc_names, render_upload_widget
 
 
 SUPPORTED_AUDIO = ["mp3", "m4a", "wav", "mp4", "mpeg", "mpga", "webm"]
@@ -27,20 +27,34 @@ SUPPORTED_DOCS = ["pdf", "docx", "xlsx", "xls", "csv"]
 
 
 def _clear_all_inputs() -> None:
-    """Reset every capture form field back to defaults."""
+    """Reset every capture form field and the generated brief back to defaults.
+    External stakeholders are intentionally preserved — clear them separately.
+    """
     keys = [
         "cap_category", "cap_title", "cap_date", "cap_type", "cap_org",
         "cap_depts", "cap_updated_by", "cap_tc_members",
         "cap_mode", "cap_translate", "cap_audio_upload", "cap_audio_record",
         "cap_docs", "cap_transcript", "cap_transcript_editor",
-        "pending_result", "cap_ext_stakeholders",
+        "cap_ext_excel",
+        # generated brief
+        "pending_result", "cap_email_draft", "cap_email_ta",
+        "cap_pdf_bytes", "cap_pdf_title",
     ]
     for k in keys:
         st.session_state.pop(k, None)
     st.session_state._cap_id_val = ""
-    st.session_state.pop("cap_email_draft", None)
-    st.session_state.pop("cap_pdf_bytes", None)
-    st.session_state.pop("cap_pdf_title", None)
+    # Clear any leftover action-card widget keys from a previous brief
+    stale = [k for k in st.session_state if k.startswith((
+        "text_", "status_", "owner_", "dept_", "dl_mode_", "dl_",
+        "btn_idea_", "idea_open_", "idea_",
+    ))]
+    for k in stale:
+        st.session_state.pop(k, None)
+
+
+def _clear_stakeholders() -> None:
+    """Remove all external stakeholders from the current capture form."""
+    st.session_state.cap_ext_stakeholders = []
 
 
 def render() -> None:
@@ -90,7 +104,8 @@ def render() -> None:
 
     departments = st.multiselect("Departments involved", DEFAULT_DEPARTMENTS, key="cap_depts")
 
-    # TC staff list for autocomplete
+    # TC staff — show upload widget if file not available (e.g. Streamlit Cloud)
+    render_upload_widget()
     tc_names = get_tc_names()
 
     col_tc, col_rb = st.columns(2)
@@ -181,6 +196,14 @@ def render() -> None:
     # Show added stakeholders
     ext_stk = st.session_state.cap_ext_stakeholders
     if ext_stk:
+        stk_hdr, stk_clear = st.columns([5, 1])
+        with stk_hdr:
+            st.caption(f"{len(ext_stk)} stakeholder(s) added to this meeting.")
+        with stk_clear:
+            if st.button("Clear all", key="cap_clear_ext_all", help="Remove all stakeholders from this form"):
+                _clear_stakeholders()
+                st.rerun()
+
         for i, s in enumerate(ext_stk):
             col_info, col_del = st.columns([5, 1])
             with col_info:
@@ -336,12 +359,13 @@ def render() -> None:
             )
 
         st.markdown("### Action items")
+        st.caption("Review and edit the AI-generated tasks before saving.")
         actions = result.get("action_items", [])
         if not actions:
             st.info("No action items were extracted from this transcript.")
         for idx, a in enumerate(actions):
             a.setdefault("id", f"act-{uid()}-{idx}")
-            action_card(a)
+            action_card(a, editable=True, persist_callback=lambda: None)
 
         # ── Download PDF ──────────────────────────────────────────────
         # Cache PDF bytes in session_state so the download button always has data
@@ -387,9 +411,17 @@ def render() -> None:
                 _clear_all_inputs()
                 st.rerun()
         with col_discard:
-            if st.button("Discard", key="cap_discard"):
-                st.session_state.pop("pending_result", None)
-                st.session_state.pop("cap_email_draft", None)
+            if st.button("Discard brief", key="cap_discard"):
+                # Clear the generated brief and all related state
+                for _k in ["pending_result", "cap_email_draft", "cap_email_ta",
+                           "cap_pdf_bytes", "cap_pdf_title"]:
+                    st.session_state.pop(_k, None)
+                # Clear leftover action-card widget keys
+                for _k in [k for k in st.session_state if k.startswith((
+                    "text_", "status_", "owner_", "dept_", "dl_mode_", "dl_",
+                    "btn_idea_", "idea_open_", "idea_",
+                ))]:
+                    st.session_state.pop(_k, None)
                 st.rerun()
 
 
