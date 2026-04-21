@@ -181,6 +181,14 @@ def action_card(
             f"</div>",
             unsafe_allow_html=True,
         )
+    # ── Editable task text ───────────────────────────────────────────
+    new_text = st.text_input(
+        "Task description",
+        value=action.get("text", ""),
+        key=f"text_{action_id}",
+        placeholder="Describe the action item…",
+    )
+
     # ── Editable fields (2-column layout) ───────────────────────────
     col_edit1, col_edit2 = st.columns(2)
 
@@ -247,6 +255,10 @@ def action_card(
     new_deadline = "None" if mode == "No deadline" else edited.isoformat()
 
     changed = False
+    _new_text_stripped = new_text.strip()
+    if _new_text_stripped and _new_text_stripped != normalize_value(action.get("text"), ""):
+        action["text"] = _new_text_stripped
+        changed = True
     if new_status != current:
         action["status"] = new_status
         changed = True
