@@ -36,7 +36,7 @@ except ImportError:
 # OLLAMA
 # ==================================================================
 def call_ollama(system: str, user_msg: str, max_tokens: int = 1800,
-                temperature: float = 0.1) -> str:
+                temperature: float = 0.1, num_ctx: int = 3072) -> str:
     """Send a prompt to Ollama and return the raw text response.
 
     Automatically adds the ngrok-skip header when the URL points to an ngrok
@@ -54,7 +54,7 @@ def call_ollama(system: str, user_msg: str, max_tokens: int = 1800,
         "stream": False,
         "options": {
             "num_predict": max_tokens,
-            "num_ctx": 3072,   # enough for compacted transcript + system prompt
+            "num_ctx": num_ctx,
             "temperature": temperature,
             "top_p": 0.9,
             "repeat_penalty": 1.1,  # reduce repetition → shorter/faster output
