@@ -6,11 +6,11 @@ import streamlit as st
 NAV_ITEMS = [
     ("Dashboard",      "Dashboard"),
     ("Action Tracker", "Tracker"),
-    ("People",         "People"),
-    ("Stakeholders",   "Stakeholders"),
-    ("Analytics",      "Analytics"),
+    ("People Tracker", "People"),
     ("Capture",        "Capture"),
     ("Chat History",   "History"),
+    ("Stakeholders",   "Stakeholders"),
+    ("Analytics",      "Analytics"),
 ]
 
 
@@ -26,7 +26,7 @@ def render() -> None:
         )
         for display_label, page_key in NAV_ITEMS:
             is_active = st.session_state.get("current_page") == page_key
-            label = f"● {display_label}" if is_active else display_label
+            label = f"{display_label}" if is_active else display_label
             if st.button(label, key=f"nav_{page_key}", use_container_width=True):
                 st.session_state.current_page = page_key
                 # Clear dashboard chat session when navigating away
