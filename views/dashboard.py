@@ -113,7 +113,7 @@ def _render_overdue_alert(meetings: list) -> None:
         f"<div style='background:#fef2f2;border:2px solid #ef4444;border-radius:16px;"
         f"padding:0.9rem 1rem;margin-bottom:1rem'>"
         f"<div style='font-weight:800;color:#991b1b;font-size:1rem;margin-bottom:0.6rem'>"
-        f"🔴 Overdue Actions — {len(overdue_rows)} item(s) need immediate attention</div>"
+        f"Overdue Actions — {len(overdue_rows)} item(s) need immediate attention</div>"
         f"{rows_html}"
         f"</div>",
         unsafe_allow_html=True,
@@ -165,16 +165,17 @@ def _get_all_active_meetings(meetings: list) -> list:
 
 
 # ------------------------------------------------------------------
-# Upcoming Tasks — flat list of action items grouped by department
+# Upcoming Tasks — items due within the next 7 days or overdue
 # ------------------------------------------------------------------
 def _render_upcoming(meetings: list) -> None:
-    """Collect all non-done action items, group by department, render as cards."""
+    """Show action items due within 7 days (or already overdue), grouped by department."""
     from collections import defaultdict
+    from utils.helpers import days_left as _dl
     from ui.components import action_card
 
     st.markdown("#### Upcoming Tasks")
+    st.caption("Showing overdue items and tasks due within the next 7 days.")
 
-    # Gather Pending and In Progress action items only (Overdue/Done/Cancelled excluded)
     action_rows = []
     for m in meetings:
         m_date  = normalize_value(m.get("date"), "")
@@ -184,22 +185,35 @@ def _render_upcoming(meetings: list) -> None:
             m_dept = ""
 
         for a in (m.get("actions") or []):
-            if normalize_status(a) not in ("Pending", "In Progress"):
+            status = normalize_status(a)
+            if status in ("Done", "Cancelled"):
                 continue
-            # Action's own department takes priority; fall back to meeting's dept
+
+            deadline = normalize_value(a.get("deadline"), "")
+            dl = _dl(deadline) if deadline and deadline not in ("None", "Not stated") else None
+
+            # Include if overdue OR due within 7 days
+            if status != "Overdue" and (dl is None or dl > 7):
+                continue
+
             a_dept = normalize_value(a.get("department") or a.get("company"), "").strip()
-            if a_dept in ("None", "Not stated", ""):
-                a_dept = m_dept
+            if a_dept in ("None", "Not stated", "TalentCorp", "Talent Corp", "TC", ""):
+                a_dept = m_dept if m_dept else ""
 
-            # Filter out action items belonging to external (non-TalentCorp) organisations
-            if a_dept and not _is_talentcorp_dept(a_dept):
-                continue
-
-            action_rows.append({"action": a, "dept": a_dept, "meeting_date": m_date, "meeting_title": m_title})
+            action_rows.append({
+                "action":       a,
+                "dept":         a_dept,
+                "meeting_date": m_date,
+                "meeting_title": m_title,
+                "dl":           dl if dl is not None else 9999,
+            })
 
     if not action_rows:
-        st.info("No pending actions. Add a meeting in Capture to see it here.")
+        st.info("No tasks due in the next 7 days. You are up to date.")
         return
+
+    # Sort: overdue first, then soonest deadline
+    action_rows.sort(key=lambda r: r["dl"])
 
     # Group by department
     dept_map: dict = defaultdict(list)
@@ -212,7 +226,7 @@ def _render_upcoming(meetings: list) -> None:
         st.markdown(
             f"<div style='font-size:0.82rem;font-weight:800;color:var(--brand-2);"
             f"text-transform:uppercase;letter-spacing:0.06em;margin:0.9rem 0 0.25rem'>"
-            f"🏢 {dept}</div>",
+            f"{dept}</div>",
             unsafe_allow_html=True,
         )
         for row in dept_map[dept]:
@@ -223,7 +237,7 @@ def _render_upcoming(meetings: list) -> None:
             st.markdown(
                 "<div style='font-size:0.82rem;font-weight:800;color:var(--text-soft);"
                 "text-transform:uppercase;letter-spacing:0.06em;margin:0.9rem 0 0.25rem'>"
-                "📋 Other</div>",
+                "Unassigned</div>",
                 unsafe_allow_html=True,
             )
         for row in dept_map[""]:
