@@ -54,15 +54,6 @@ def render() -> None:
     people_actions = _collect_people(meetings)
 
     st.markdown("## People")
-    st.caption("Search by name to see tasks assigned to a person, or browse the full team below.")
-
-    # ── Single search bar ──────────────────────────────────────────
-    search = st.text_input(
-        "Search by name",
-        placeholder="Type a name to filter or find tasks…",
-        key="people_search_unified",
-        label_visibility="collapsed",
-    )
 
     if not people_actions:
         st.info("No named assignees found yet. Capture meetings with explicitly named action item owners to see them here.")
@@ -82,13 +73,6 @@ def render() -> None:
                      "pending": pending, "rate": rate, "actions": actions})
 
     rows.sort(key=lambda r: (-r["overdue"], r["rate"]))
-
-    # Filter by search
-    if search.strip():
-        rows = [r for r in rows if search.strip().lower() in r["person"].lower()]
-        if not rows:
-            st.info(f"No person found matching '{search.strip()}'.")
-            return
 
     # KPIs (always shown based on full dataset)
     all_rows = rows
@@ -114,8 +98,12 @@ def render() -> None:
 
     st.markdown("<div style='height:0.5rem'></div>", unsafe_allow_html=True)
 
-    # Team search filter
-    team_search = st.text_input("Search team member", placeholder="Filter by name…", key="people_team_search")
+    # Filter by name — text search
+    team_search = st.text_input(
+        "Filter by name",
+        placeholder="Filter by name…",
+        key="people_team_search",
+    )
     filtered = [r for r in rows if not team_search or team_search.lower() in r["person"].lower()]
 
     if not filtered:
