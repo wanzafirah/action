@@ -194,21 +194,21 @@ def action_card(
         )
 
     with col_edit2:
-        _cur_owner = action.get("owner", "")
-        if _cur_owner in ("Not stated", "None"):
-            _cur_owner = ""
+        _cur_owner_raw = action.get("owner", "")
+        if _cur_owner_raw in ("Not stated", "None"):
+            _cur_owner_raw = ""
+        # Parse comma-separated names into a list
+        _cur_owners = [n.strip() for n in _cur_owner_raw.split(",") if n.strip()]
         _tc_names = get_tc_names()
-        # Build options: blank + TC staff + current value if not already in list
-        _owner_opts = [""] + _tc_names
-        if _cur_owner and _cur_owner not in _owner_opts:
-            _owner_opts = ["", _cur_owner] + _tc_names
-        _owner_idx = _owner_opts.index(_cur_owner) if _cur_owner in _owner_opts else 0
-        new_owner = st.selectbox(
+        # Include any existing names not in TC list so they remain selectable
+        _extra = [n for n in _cur_owners if n not in _tc_names]
+        _owner_opts = _tc_names + _extra
+        new_owners = st.multiselect(
             "Assignee",
             options=_owner_opts,
-            index=_owner_idx,
+            default=[n for n in _cur_owners if n in _owner_opts],
             key=f"owner_{action_id}",
-            format_func=lambda x: x if x else "— Select or search —",
+            placeholder="Select one or more assignees…",
         )
 
     col_edit3, col_edit4 = st.columns(2)
@@ -253,7 +253,7 @@ def action_card(
     if new_deadline != normalize_value(action.get("deadline"), "None"):
         action["deadline"] = new_deadline
         changed = True
-    _saved_owner = new_owner.strip() or "Not stated"
+    _saved_owner = ", ".join(new_owners) if new_owners else "Not stated"
     if _saved_owner != normalize_value(action.get("owner"), "Not stated"):
         action["owner"] = _saved_owner
         changed = True
