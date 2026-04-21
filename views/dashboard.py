@@ -104,7 +104,7 @@ def _render_overdue_alert(meetings: list) -> None:
             f"padding:0.5rem 0.8rem;margin-bottom:0.35rem'>"
             f"<div style='font-weight:700;color:#7f1d1d;font-size:0.92rem'>{r['text']}</div>"
             f"<div style='font-size:0.8rem;color:#991b1b;margin-top:0.15rem'>"
-            f"👤 {r['owner']}{dept_part} &nbsp;|&nbsp; 📋 {r['mtitle']} "
+            f"{r['owner']}{dept_part} &nbsp;|&nbsp; {r['mtitle']} "
             f"&nbsp;|&nbsp; <strong>{r['days_over']}d overdue</strong>"
             f"</div></div>"
         )
