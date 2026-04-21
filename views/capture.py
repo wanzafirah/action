@@ -214,7 +214,7 @@ def render() -> None:
         summary_panel(result)
 
         # ── Copy Email button ─────────────────────────────────────────
-        if st.button("📧 Copy Meeting Summary Email", key="cap_email_btn"):
+        if st.button("Copy Meeting Summary Email", key="cap_email_btn"):
             st.session_state.cap_email_draft = _build_email_text(pending, result)
 
         if st.session_state.get("cap_email_draft"):
@@ -249,7 +249,7 @@ def render() -> None:
 
         if st.session_state.get("cap_pdf_bytes"):
             st.download_button(
-                label="⬇ Download Brief (PDF)",
+                label="Download Brief (PDF)",
                 data=st.session_state.cap_pdf_bytes,
                 file_name=f"{st.session_state.get('cap_pdf_title', 'meeting')}.pdf",
                 mime="application/pdf",
