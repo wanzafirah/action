@@ -8,7 +8,7 @@ anywhere, including unit tests.
 # Model configuration
 # ------------------------------------------------------------------
 OLLAMA_MODEL = "llama3.2:latest"
-WHISPER_MODEL = "tiny"           # faster-whisper model size: tiny / base / small / medium
+WHISPER_MODEL = "base"           # faster-whisper model size: tiny / base / small / medium
 
 # ------------------------------------------------------------------
 # Supabase table names
@@ -129,6 +129,11 @@ Rules:
 - Only capture action items that are explicitly stated. Do not invent tasks.
 - For each action item include: text, owner, department, deadline, priority,
   follow_up_required, follow_up_reason, suggestion.
+- CRITICAL OWNER RULE: "owner" must ONLY be set to a person's name if that specific
+  person was explicitly told to do the task, volunteered to do it, or was directly
+  assigned it during the meeting. DO NOT use names from the attendees list, People
+  Involved section, or anyone mentioned in the meeting unless they were specifically
+  assigned THAT task. If there is any doubt, use "Not stated".
 - "owner" must be a PERSON's name (e.g. "Ahmad", "Sarah"), NOT an organisation name.
   If only an organisation is mentioned, use "Not stated" for owner and put the
   organisation name in "department".
