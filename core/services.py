@@ -112,10 +112,19 @@ def transcribe_audio_file(uploaded_file, translate_to_english: bool = True) -> s
         task = "translate" if translate_to_english else "transcribe"
         # beam_size=5 gives better accuracy for mixed-language (Malay-English) audio.
         # language=None lets Whisper auto-detect the language per segment.
-        # initial_prompt nudges Whisper to handle Malaysian/Malay-English code-switching.
+        # initial_prompt seeds Whisper's vocabulary with TalentCorp brand names and
+        # common Manglish/Malay terms so they are transcribed correctly.
         initial_prompt = (
-            "The following is a meeting recording in Malaysian English or Bahasa Malaysia, "
-            "or a mixture of both languages."
+            "This is a TalentCorp Malaysia internal meeting in Manglish — a mix of "
+            "English and Bahasa Malaysia. "
+            "Brand names: TalentCorp, MyMahir, MyNext, MyXpats, MyHeart, MyWira, "
+            "GEF, MPT, MYXpats, TCBD, GCEO, Supabase. "
+            "Common Malay words: lah, kan, boleh, macam, memang, sikit, banyak, "
+            "sudah, belum, takde, takut, cakap, kena, okay, ya, eh, ah, "
+            "nak, ada, dari, untuk, dengan, tapi, sebab, kalau, bila, semua. "
+            "Departments: Group Digital, Group Finance, Group Human Resources, "
+            "Group Strategy Office, Campus Engagement, School Talent Hub, "
+            "MyMahir Workforce Solutions, Group Business Intelligence."
         )
         segments, _info = model.transcribe(
             tmp.name,
