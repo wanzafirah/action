@@ -274,7 +274,6 @@ def summary_panel(result: dict) -> None:
     objective = normalize_value(result.get("objective"), "Not provided")
     follow_up = "Yes" if result.get("follow_up") else "No"
 
-    key_points = result.get("discussion_points") or []
     next_steps = [
         normalize_value(a.get("text"), "")
         for a in result.get("action_items", []) if isinstance(a, dict)
@@ -298,13 +297,11 @@ def summary_panel(result: dict) -> None:
         unsafe_allow_html=True,
     )
 
-    if not (key_points or next_steps or people):
+    if not (next_steps or people):
         return
 
-    left, mid, right = st.columns(3)
+    left, right = st.columns(2)
     with left:
-        _summary_section("Key Points Discussed", join_list(key_points))
-    with mid:
         _summary_section("Next Steps", join_list(next_steps))
     with right:
         _summary_section("People Involved", join_list(people))
