@@ -11,6 +11,7 @@ from datetime import date, datetime
 import streamlit as st
 
 from config.constants import STATUS_CFG, STATUSES
+from utils.tc_staff import get_tc_names
 from utils.formatters import render_chat_bubble_html
 from utils.helpers import (
     join_list,
@@ -196,11 +197,18 @@ def action_card(
         _cur_owner = action.get("owner", "")
         if _cur_owner in ("Not stated", "None"):
             _cur_owner = ""
-        new_owner = st.text_input(
+        _tc_names = get_tc_names()
+        # Build options: blank + TC staff + current value if not already in list
+        _owner_opts = [""] + _tc_names
+        if _cur_owner and _cur_owner not in _owner_opts:
+            _owner_opts = ["", _cur_owner] + _tc_names
+        _owner_idx = _owner_opts.index(_cur_owner) if _cur_owner in _owner_opts else 0
+        new_owner = st.selectbox(
             "Assignee",
-            value=_cur_owner,
+            options=_owner_opts,
+            index=_owner_idx,
             key=f"owner_{action_id}",
-            placeholder="Person's name",
+            format_func=lambda x: x if x else "— Select or search —",
         )
 
     col_edit3, col_edit4 = st.columns(2)
