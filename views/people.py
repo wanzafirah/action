@@ -98,13 +98,16 @@ def render() -> None:
 
     st.markdown("<div style='height:0.5rem'></div>", unsafe_allow_html=True)
 
-    # Filter by name — text search
-    team_search = st.text_input(
+    # Filter by name — selectbox from actual people in the list
+    people_names = ["All"] + sorted(r["person"] for r in rows)
+    selected_name = st.selectbox(
         "Filter by name",
-        placeholder="Filter by name…",
+        options=people_names,
         key="people_team_search",
+        format_func=lambda x: x if x != "All" else "— Show all —",
     )
-    filtered = [r for r in rows if not team_search or team_search.lower() in r["person"].lower()]
+
+    filtered = rows if selected_name == "All" else [r for r in rows if r["person"] == selected_name]
 
     if not filtered:
         st.info("No people match your search.")
