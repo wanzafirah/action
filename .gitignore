@@ -5,3 +5,6 @@ __pycache__/
 .streamlit/secrets.toml
 *.xlsx
 .DS_Store
+TC Staff Details.xlsx
+~$TC Staff Details.xlsx
+data/stakeholders.json
