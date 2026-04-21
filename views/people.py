@@ -29,16 +29,23 @@ def _is_person(name: str) -> bool:
 
 
 def _collect_people(meetings: list) -> dict[str, list]:
-    """Return {person_name: [action_dicts]} across all meetings."""
+    """Return {person_name: [action_dicts]} across all meetings.
+
+    Handles comma-separated owner strings (e.g. "Aisyah, Farhan, Mei Ling")
+    by splitting each into individual names so every person appears separately.
+    """
     people: dict[str, list] = defaultdict(list)
     for m in meetings:
         m_title = normalize_value(m.get("title"), "Untitled meeting")
         m_date  = normalize_value(m.get("date"), "")
         for a in (m.get("actions") or []):
-            owner = normalize_value(a.get("owner"), "Not stated")
-            if not _is_person(owner):
-                continue
-            people[owner].append({**a, "_meeting_title": m_title, "_meeting_date": m_date})
+            raw_owner = normalize_value(a.get("owner"), "Not stated")
+            # Split comma-separated names into individuals
+            names = [n.strip() for n in raw_owner.split(",") if n.strip()]
+            for owner in names:
+                if not _is_person(owner):
+                    continue
+                people[owner].append({**a, "_meeting_title": m_title, "_meeting_date": m_date})
     return people
 
 
@@ -47,39 +54,14 @@ def render() -> None:
     people_actions = _collect_people(meetings)
 
     st.markdown("## People")
+    st.caption("Search by name to see tasks assigned to a person, or browse the full team below.")
 
-    # ══════════════════════════════════════════════════════════════
-    # PERSONAL VIEW — find my tasks
-    # ══════════════════════════════════════════════════════════════
-    st.markdown(
-        "<div style='background:linear-gradient(135deg,#f0f4ff,#fdf0f8);"
-        "border:1px solid #d8dceb;border-radius:18px;padding:1rem 1.2rem;margin-bottom:1.2rem'>"
-        "<div style='font-weight:800;font-size:1rem;color:#0E1B48;margin-bottom:0.2rem'>"
-        "Find my tasks</div>"
-        "<div style='font-size:0.88rem;color:#6e7f96'>"
-        "Enter your name to see all action items assigned to you.</div>"
-        "</div>",
-        unsafe_allow_html=True,
-    )
-
-    my_name = st.text_input(
-        "Your name",
-        placeholder="e.g. Ahmad, Siti, Wan…",
-        key="people_my_name",
+    # ── Single search bar ──────────────────────────────────────────
+    search = st.text_input(
+        "Search by name",
+        placeholder="Type a name to filter or find tasks…",
+        key="people_search_unified",
         label_visibility="collapsed",
-    )
-
-    if my_name.strip():
-        _render_personal_view(my_name.strip(), people_actions)
-        st.markdown("---")
-
-    # ══════════════════════════════════════════════════════════════
-    # TEAM OVERVIEW
-    # ══════════════════════════════════════════════════════════════
-    st.markdown(
-        "<div style='font-weight:800;font-size:1rem;color:#0E1B48;margin:0.5rem 0 0.8rem'>"
-        "Team overview</div>",
-        unsafe_allow_html=True,
     )
 
     if not people_actions:
@@ -101,10 +83,18 @@ def render() -> None:
 
     rows.sort(key=lambda r: (-r["overdue"], r["rate"]))
 
-    # KPIs
-    total_people = len(rows)
-    avg_rate     = int(sum(r["rate"] for r in rows) / total_people) if total_people else 0
-    at_risk      = sum(1 for r in rows if r["overdue"] > 0)
+    # Filter by search
+    if search.strip():
+        rows = [r for r in rows if search.strip().lower() in r["person"].lower()]
+        if not rows:
+            st.info(f"No person found matching '{search.strip()}'.")
+            return
+
+    # KPIs (always shown based on full dataset)
+    all_rows = rows
+    total_people = len(all_rows)
+    avg_rate     = int(sum(r["rate"] for r in all_rows) / total_people) if total_people else 0
+    at_risk      = sum(1 for r in all_rows if r["overdue"] > 0)
 
     c1, c2, c3 = st.columns(3)
     for col, title, value, color, sub in [
