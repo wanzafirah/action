@@ -8,6 +8,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from datetime import date
+
 from utils.helpers import uid
 
 _DATA_FILE = Path(__file__).parent.parent / "data" / "stakeholders.json"
@@ -55,6 +57,7 @@ def upsert_stakeholders_from_meeting(meeting_id: str, new_entries: list[dict]) -
                 "organisation": entry.get("organisation", ""),
                 "phone":        entry.get("phone", ""),
                 "email":        entry.get("email", ""),
+                "date_added":   date.today().isoformat(),
                 "meeting_ids":  [meeting_id],
             })
             existing_keys.add(key)
