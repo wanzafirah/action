@@ -165,16 +165,16 @@ def _get_all_active_meetings(meetings: list) -> list:
 
 
 # ------------------------------------------------------------------
-# Upcoming Tasks — items due within the next 7 days or overdue
+# Upcoming Tasks — items due within the next 7 days only (not overdue)
 # ------------------------------------------------------------------
 def _render_upcoming(meetings: list) -> None:
-    """Show action items due within 7 days (or already overdue), grouped by department."""
+    """Show action items due within the next 7 days. Overdue items appear in the red panel above."""
     from collections import defaultdict
     from utils.helpers import days_left as _dl
     from ui.components import action_card
 
     st.markdown("#### Upcoming Tasks")
-    st.caption("Showing overdue items and tasks due within the next 7 days.")
+    st.caption("Tasks with deadlines in the next 7 days.")
 
     action_rows = []
     for m in meetings:
@@ -186,14 +186,14 @@ def _render_upcoming(meetings: list) -> None:
 
         for a in (m.get("actions") or []):
             status = normalize_status(a)
-            if status in ("Done", "Cancelled"):
+            if status in ("Done", "Cancelled", "Overdue"):
                 continue
 
             deadline = normalize_value(a.get("deadline"), "")
             dl = _dl(deadline) if deadline and deadline not in ("None", "Not stated") else None
 
-            # Include if overdue OR due within 7 days
-            if status != "Overdue" and (dl is None or dl > 7):
+            # Only include if deadline is between today and 7 days from now
+            if dl is None or dl < 0 or dl > 7:
                 continue
 
             a_dept = normalize_value(a.get("department") or a.get("company"), "").strip()
@@ -209,7 +209,7 @@ def _render_upcoming(meetings: list) -> None:
             })
 
     if not action_rows:
-        st.info("No tasks due in the next 7 days. You are up to date.")
+        st.info("No tasks due in the next 7 days.")
         return
 
     # Sort: overdue first, then soonest deadline
