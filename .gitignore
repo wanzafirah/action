@@ -4,7 +4,6 @@ __pycache__/
 .env
 .streamlit/secrets.toml
 *.xlsx
+!TC Staff Details.xlsx
 .DS_Store
-TC Staff Details.xlsx
-~$TC Staff Details.xlsx
 data/stakeholders.json
