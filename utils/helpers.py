@@ -105,13 +105,13 @@ def nudge_flags(action: dict, meeting_date: str = "") -> list[str]:
 
     if delta is not None:
         if delta < 0:
-            flags.append(f"🔴 {abs(delta)}d overdue")
+            flags.append(f"{abs(delta)}d overdue")
         elif delta == 0:
-            flags.append("🔔 Due today!")
+            flags.append("Due today")
         elif delta <= 3:
-            flags.append(f"🔔 Due in {delta}d — act soon")
+            flags.append(f"Due in {delta}d — act soon")
         elif delta <= 7:
-            flags.append(f"🕐 Due in {delta}d")
+            flags.append(f"Due in {delta}d")
 
     # How long has this been sitting pending?
     ref_date = meeting_date or ""
@@ -120,9 +120,9 @@ def nudge_flags(action: dict, meeting_date: str = "") -> list[str]:
         # days_left gives future days; sitting days = negative of that
         sitting = -pending_days
         if sitting >= 30 and status in ("Pending", "In Progress"):
-            flags.append(f"🚨 Pending for {sitting}d — needs attention")
+            flags.append(f"Pending for {sitting}d — needs attention")
         elif sitting >= 14 and status == "Pending":
-            flags.append(f"⏳ Pending for {sitting}d with no update")
+            flags.append(f"Pending for {sitting}d — no update")
 
     return flags
 
