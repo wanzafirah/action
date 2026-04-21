@@ -324,10 +324,25 @@ def chat_with_meetings(question: str, meetings: list) -> str:
 
     full_context = meeting_context + ("\n\n" + stk_context if stk_context else "")
 
+    # Pre-compute key facts so the LLM reads numbers, not calculates them
+    from utils.helpers import normalize_status as _ns
+    overdue_meetings = [
+        m for m in meetings
+        if any(_ns(a) == "Overdue" for a in (m.get("actions") or []))
+    ]
+    total_overdue_actions = sum(
+        sum(1 for a in (m.get("actions") or []) if _ns(a) == "Overdue")
+        for m in meetings
+    )
+
     from config.constants import CHAT_SYSTEM
     user_msg = (
-        f"IMPORTANT: There are {len(meetings)} meeting(s) total. "
-        f"A stakeholder directory is also included below — use it to answer questions about contacts, organisations, and people.\n\n"
+        f"FACTS (pre-computed — use these exact numbers, do not recount):\n"
+        f"- Total meetings: {len(meetings)}\n"
+        f"- Meetings with at least one overdue action: {len(overdue_meetings)}"
+        + (f" (titles: {', '.join(m.get('title','Untitled') for m in overdue_meetings)})" if overdue_meetings else "") + "\n"
+        f"- Total overdue action items across all meetings: {total_overdue_actions}\n\n"
+        f"A stakeholder directory is also included — use it to answer questions about contacts.\n\n"
         f"Data:\n{full_context}\n\n"
         f"Question: {question}"
     )
