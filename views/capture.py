@@ -30,18 +30,19 @@ def _clear_all_inputs() -> None:
     """Reset every capture form field and the generated brief back to defaults.
     External stakeholders are intentionally preserved — clear them separately.
     """
-    keys = [
+    # Pop non-widget keys and file-uploader keys
+    for k in [
         "cap_category", "cap_title", "cap_date", "cap_type", "cap_org",
         "cap_depts", "cap_updated_by", "cap_tc_members",
         "cap_mode", "cap_translate", "cap_audio_upload", "cap_audio_record",
-        "cap_docs", "cap_transcript", "cap_transcript_editor",
-        "cap_ext_excel",
-        # generated brief
+        "cap_docs", "cap_ext_excel",
         "pending_result", "cap_email_draft", "cap_email_ta",
         "cap_pdf_bytes", "cap_pdf_title",
-    ]
-    for k in keys:
+    ]:
         st.session_state.pop(k, None)
+    # Explicitly set transcript to "" so the text_area widget resets reliably
+    st.session_state["cap_transcript"] = ""
+    st.session_state["cap_transcript_editor"] = ""
     st.session_state._cap_id_val = ""
     # Clear any leftover action-card widget keys from a previous brief
     stale = [k for k in st.session_state if k.startswith((
