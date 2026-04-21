@@ -232,44 +232,53 @@ div[data-testid="stDownloadButton"] > button * {
     background: var(--brand-2) !important;
     opacity: 1 !important;
 }
-/* File uploader label / text colour fix — DO NOT add .stFileUploader span here;
-   that broad rule overrides the upload button's white text */
-.stFileUploader label,
-.stFileUploader [data-testid="stFileUploaderDropzone"] p,
-.stFileUploader [data-testid="stFileUploaderDropzone"] small {
-    color: #000000 !important;
-}
-.stFileUploader [data-testid="stFileUploaderDropzone"] {
+/* ── File uploader ──────────────────────────────────────────────────
+   Dropzone background + border */
+.stFileUploader [data-testid="stFileUploaderDropzone"],
+[data-testid="stFileUploaderDropzone"] {
     background: #ffffff !important;
     border: 1px dashed var(--border) !important;
     border-radius: 12px !important;
 }
-/* Upload / Browse files button — white text.
-   Streamlit's emotion CSS can override simple selectors, so we use
-   every known structural path + !important on all descendants. */
-html body [data-testid="stFileUploaderDropzone"] button,
-html body [data-testid*="FileUploader"] button,
-html body section[data-testid="stFileUploader"] button,
-html body .stFileUploader button {
-    color: #ffffff !important;
+/* Instruction text inside dropzone — BLACK */
+[data-testid="stFileUploaderDropzoneInstructions"],
+[data-testid="stFileUploaderDropzoneInstructions"] *,
+[data-testid="stFileUploaderDropzoneInstructions"] span,
+[data-testid="stFileUploaderDropzoneInstructions"] small,
+[data-testid="stFileUploaderDropzoneInstructions"] div,
+[data-testid="stFileUploaderDropzoneInstructions"] p,
+.stFileUploader [data-testid="stFileUploaderDropzone"] small,
+.stFileUploader [data-testid="stFileUploaderDropzone"] > div > span,
+.stFileUploader [data-testid="stFileUploaderDropzone"] > div > div {
+    color: #000000 !important;
+}
+/* Upload button — WHITE text on brand background */
+[data-testid="stFileUploaderDropzone"] button,
+[data-testid="stFileUploaderDropzone"] button span,
+[data-testid="stFileUploaderDropzone"] button p,
+[data-testid="stFileUploaderDropzone"] button div,
+.stFileUploader button,
+.stFileUploader button span,
+.stFileUploader button p {
+    background: var(--brand) !important;
     background-color: var(--brand) !important;
+    color: #ffffff !important;
+    fill: #ffffff !important;
     border: none !important;
     border-radius: 10px !important;
     font-weight: 700 !important;
 }
-html body [data-testid="stFileUploaderDropzone"] button *,
-html body [data-testid*="FileUploader"] button *,
-html body section[data-testid="stFileUploader"] button *,
-html body .stFileUploader button * {
-    color: #ffffff !important;
+/* SVG icon inside upload button */
+[data-testid="stFileUploaderDropzone"] button svg,
+.stFileUploader button svg {
     fill: #ffffff !important;
     stroke: #ffffff !important;
-}
-/* Also target any p/span/div directly inside upload dropzone that may render button text */
-html body [data-testid="stFileUploaderDropzone"] p,
-html body [data-testid="stFileUploaderDropzoneInstructions"] + div p,
-html body [data-testid="stFileUploaderDropzoneInstructions"] ~ div button p {
     color: #ffffff !important;
+}
+/* Field label above the uploader */
+.stFileUploader label {
+    color: var(--text) !important;
+    font-weight: 600 !important;
 }
 /* Audio input label */
 .stAudioInput label { color: var(--text) !important; font-weight: 600 !important; }
