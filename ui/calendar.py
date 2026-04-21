@@ -61,13 +61,13 @@ def render(meetings: list) -> None:
         return
 
     # ── Checkbox toggle — state persists across reruns unlike st.expander ──
-    show = st.checkbox("🔍 View date details", key="cal_show_details")
+    show = st.checkbox("View date details", key="cal_show_details")
     if not show:
         return
 
     st.markdown(
         "<div style='font-size:0.75rem;color:#6e7f96;margin-bottom:0.3rem'>"
-        "📅 = meeting held &nbsp;&nbsp; ⚡ = task due &nbsp;— press a date below</div>",
+        "M = meeting held &nbsp;&nbsp; D = deadline due &nbsp;— press a date below</div>",
         unsafe_allow_html=True,
     )
 
@@ -80,11 +80,11 @@ def render(meetings: list) -> None:
             is_m = day_num in conducted
             is_d = day_num in pending
             if is_m and is_d:
-                label = f"📅⚡{day_num}"
+                label = f"M+D {day_num}"
             elif is_m:
-                label = f"📅{day_num}"
+                label = f"M {day_num}"
             else:
-                label = f"⚡{day_num}"
+                label = f"D {day_num}"
 
             date_iso = date(year, month, day_num).isoformat()
             selected = st.session_state.get("cal_selected")
@@ -120,7 +120,7 @@ def render(meetings: list) -> None:
         mtgs = get_meetings_on_date(meetings, selected)
         st.markdown(
             "<div style='font-size:0.8rem;font-weight:700;color:#1e40af;"
-            "margin:0.35rem 0 0.2rem'>📅 Meetings held</div>",
+            "margin:0.35rem 0 0.2rem'>Meetings held</div>",
             unsafe_allow_html=True,
         )
         if mtgs:
@@ -142,7 +142,7 @@ def render(meetings: list) -> None:
         actions = get_actions_due_on_date(meetings, selected)
         st.markdown(
             "<div style='font-size:0.8rem;font-weight:700;color:#92400e;"
-            "margin:0.35rem 0 0.2rem'>⚡ Tasks due</div>",
+            "margin:0.35rem 0 0.2rem'>Tasks due</div>",
             unsafe_allow_html=True,
         )
         if actions:
