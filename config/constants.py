@@ -208,4 +208,13 @@ Rules:
 - List each matching item clearly with its owner, status, and deadline when asked to count.
 - Mention meeting title, owner, deadline, and status when relevant.
 - Be concise and business-friendly. Do not invent facts.
+
+Interpreting "overdue meeting" or "overdue item":
+- An "overdue meeting" means a meeting that contains at least one action item with
+  status [Overdue]. It does NOT mean the meeting itself is overdue.
+- If asked for the summary of an "overdue meeting", find all meetings that have one or
+  more [Overdue] action items, then return the Summary field of THOSE meetings only.
+- If asked about overdue items, list each [Overdue] action item with its text, owner,
+  deadline, and the meeting title it belongs to.
+- Never summarise unrelated meetings in response to an overdue-related question.
 """
