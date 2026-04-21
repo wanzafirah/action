@@ -67,7 +67,7 @@ def render(meetings: list) -> None:
 
     st.markdown(
         "<div style='font-size:0.75rem;color:#6e7f96;margin-bottom:0.3rem'>"
-        "M = meeting held &nbsp;&nbsp; D = deadline due &nbsp;— press a date below</div>",
+        "📋 = meeting held &nbsp;&nbsp; 🔔 = deadline due &nbsp;— press a date below</div>",
         unsafe_allow_html=True,
     )
 
@@ -80,11 +80,11 @@ def render(meetings: list) -> None:
             is_m = day_num in conducted
             is_d = day_num in pending
             if is_m and is_d:
-                label = f"M+D {day_num}"
+                label = f"📋🔔 {day_num}"
             elif is_m:
-                label = f"M {day_num}"
+                label = f"📋 {day_num}"
             else:
-                label = f"D {day_num}"
+                label = f"🔔 {day_num}"
 
             date_iso = date(year, month, day_num).isoformat()
             selected = st.session_state.get("cal_selected")
