@@ -24,9 +24,9 @@ def render() -> None:
     with c1:
         kpi_card("Total actions", str(total), "Across all meetings", "#1d4ed8")
     with c2:
-        kpi_card("Completed", str(done), "Marked Done", "#166534")
+        kpi_card("Pending", str(pending), "Pending / In Progress / Overdue", "#b45309")
     with c3:
-        kpi_card("Outstanding", str(pending), "Pending / In Progress / Overdue", "#b45309")
+        kpi_card("Completed", str(done), "Marked Done", "#166534")
 
     # Filters
     col_search, col_status = st.columns([2, 1])
@@ -57,11 +57,11 @@ def render() -> None:
                 min_dl = dl if min_dl is None else min(min_dl, dl)
 
         if n_overdue > 0:
-            badge = f"  ⚠ {n_overdue} overdue"
+            badge = f"  [{n_overdue} overdue]"
         elif min_dl is not None and min_dl <= 3:
-            badge = f"  🔔 due in {min_dl}d"
+            badge = f"  [due in {min_dl}d]"
         elif n_pending > 0:
-            badge = f"  · {n_pending} pending"
+            badge = f"  [{n_pending} pending]"
         else:
             badge = ""
 
@@ -151,14 +151,14 @@ def _render_meeting(meeting: dict) -> None:
             if c.isalnum() or c in " _-"
         )[:40].strip()
         st.download_button(
-            label="⬇ Download Brief (PDF)",
+            label="Download Brief (PDF)",
             data=st.session_state[_pdf_cache_key],
             file_name=f"{_safe_title}.pdf",
             mime="application/pdf",
             key=f"dl_pdf_{meeting_id}",
         )
 
-    if st.button("📧 Copy Follow-Up Email", key=f"btn_email_{meeting_id}"):
+    if st.button("Copy Follow-Up Email", key=f"btn_email_{meeting_id}"):
         if st.session_state.get(email_open):
             st.session_state.pop(email_key, None)
             st.session_state[email_open] = False
