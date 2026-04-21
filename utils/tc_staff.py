@@ -3,17 +3,14 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import streamlit as st
-
 _EXCEL_PATH = Path(__file__).resolve().parent.parent / "TC Staff Details.xlsx"
 
 
-@st.cache_resource(show_spinner=False)
 def load_tc_staff() -> list[dict]:
     """Return [{name, email, tcid}] from TC Staff Details.xlsx.
 
-    Uses st.cache_resource so the Excel is read once per Streamlit process
-    and shared across all sessions/reruns.
+    No caching — reads fresh on every call so newly added staff appear
+    immediately without needing to restart Streamlit.
     """
     if not _EXCEL_PATH.exists():
         return []
@@ -46,8 +43,7 @@ def load_tc_staff() -> list[dict]:
                     "tcid":  str(tcid).strip()  if tcid  else "",
                 })
         return sorted(staff, key=lambda x: x["name"])
-    except Exception as exc:
-        st.warning(f"Could not load TC staff list: {exc}")
+    except Exception:
         return []
 
 
