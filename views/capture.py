@@ -16,8 +16,10 @@ from core.services import (
     extract_text_from_document,
     transcribe_audio_file,
 )
+from core.stakeholder_db import upsert_stakeholders_from_meeting
 from ui.components import action_card, summary_panel
 from utils.helpers import generate_activity_id, uid
+from utils.tc_staff import get_tc_names
 
 
 SUPPORTED_AUDIO = ["mp3", "m4a", "wav", "mp4", "mpeg", "mpga", "webm"]
@@ -28,14 +30,13 @@ def _clear_all_inputs() -> None:
     """Reset every capture form field back to defaults."""
     keys = [
         "cap_category", "cap_title", "cap_date", "cap_type", "cap_org",
-        "cap_depts", "cap_updated_by", "cap_stakeholders",
+        "cap_depts", "cap_updated_by", "cap_tc_members",
         "cap_mode", "cap_translate", "cap_audio_upload", "cap_audio_record",
         "cap_docs", "cap_transcript", "cap_transcript_editor",
-        "pending_result",
+        "pending_result", "cap_ext_stakeholders",
     ]
     for k in keys:
         st.session_state.pop(k, None)
-    # Reset ID field to empty (don't pop — we always read it via _cap_id_val)
     st.session_state._cap_id_val = ""
     st.session_state.pop("cap_email_draft", None)
     st.session_state.pop("cap_pdf_bytes", None)
@@ -47,7 +48,7 @@ def render() -> None:
 
     # Page title — no hero banner per user request
     st.markdown("## Capture a Meeting")
-    st.caption("Record, upload, or paste your transcript to generate a structured brief.")
+    st.caption("Record, upload or paste your transcript to generate a structured brief.")
 
     # ----- Activity metadata -----
     st.markdown("### Activity details")
@@ -79,7 +80,7 @@ def render() -> None:
         activity_id = st.text_input(
             "Activity ID",
             value=st.session_state._cap_id_val,
-            placeholder="Type your own ID, or click Generate ID →",
+            placeholder="Type your own ID or click Generate ID →",
         )
         st.session_state._cap_id_val = activity_id   # keep in sync with user edits
     with btn_col:
@@ -88,8 +89,116 @@ def render() -> None:
                   on_click=_gen_id_callback, use_container_width=True)
 
     departments = st.multiselect("Departments involved", DEFAULT_DEPARTMENTS, key="cap_depts")
-    stakeholders_raw = st.text_input("Stakeholders (comma-separated)", key="cap_stakeholders")
-    updated_by = st.text_input("Report by", key="cap_updated_by")
+
+    # TC staff list for autocomplete
+    tc_names = get_tc_names()
+
+    col_tc, col_rb = st.columns(2)
+    with col_tc:
+        tc_members = st.multiselect(
+            "Other TC Member",
+            options=tc_names,
+            key="cap_tc_members",
+            placeholder="Search and select TC staff…",
+        )
+    with col_rb:
+        report_by_options = [""] + tc_names
+        rb_default = st.session_state.get("cap_updated_by", "")
+        rb_index = report_by_options.index(rb_default) if rb_default in report_by_options else 0
+        updated_by = st.selectbox(
+            "Report by",
+            options=report_by_options,
+            index=rb_index,
+            key="cap_updated_by",
+            format_func=lambda x: x if x else "— Select staff member —",
+        )
+
+    # ----- External Stakeholders -----
+    st.markdown("### Stakeholders")
+    st.caption("People from outside TalentCorp involved in this meeting.")
+
+    if "cap_ext_stakeholders" not in st.session_state:
+        st.session_state.cap_ext_stakeholders = []
+
+    # Upload Excel option
+    ext_excel = st.file_uploader(
+        "Upload stakeholder list (Excel — columns: Name, Position, Organisation, Phone, Email)",
+        type=["xlsx", "xls"],
+        key="cap_ext_excel",
+    )
+    if ext_excel and st.button("Import from Excel", key="cap_import_ext"):
+        try:
+            import openpyxl
+            wb = openpyxl.load_workbook(ext_excel, read_only=True, data_only=True)
+            ws = wb.active
+            rows_iter = ws.iter_rows(values_only=True)
+            _header = next(rows_iter, None)  # skip header
+            imported = 0
+            for row in rows_iter:
+                name = str(row[0]).strip() if row[0] else ""
+                if not name:
+                    continue
+                st.session_state.cap_ext_stakeholders.append({
+                    "id":           uid(),
+                    "name":         name,
+                    "position":     str(row[1]).strip() if len(row) > 1 and row[1] else "",
+                    "organisation": str(row[2]).strip() if len(row) > 2 and row[2] else "",
+                    "phone":        str(row[3]).strip() if len(row) > 3 and row[3] else "",
+                    "email":        str(row[4]).strip() if len(row) > 4 and row[4] else "",
+                })
+                imported += 1
+            st.success(f"Imported {imported} stakeholder(s).")
+            st.rerun()
+        except Exception as exc:
+            st.error(f"Could not read Excel: {exc}")
+
+    # Manual add form
+    with st.expander("Add stakeholder manually", expanded=False):
+        sc1, sc2 = st.columns(2)
+        with sc1:
+            s_name = st.text_input("Name", key="cap_s_name")
+            s_org  = st.text_input("Organisation", key="cap_s_org")
+            s_phone = st.text_input("Phone", key="cap_s_phone")
+        with sc2:
+            s_pos   = st.text_input("Position", key="cap_s_pos")
+            s_email = st.text_input("Email", key="cap_s_email")
+        if st.button("Add Stakeholder", key="cap_add_ext"):
+            if s_name.strip():
+                st.session_state.cap_ext_stakeholders.append({
+                    "id":           uid(),
+                    "name":         s_name.strip(),
+                    "position":     s_pos.strip(),
+                    "organisation": s_org.strip(),
+                    "phone":        s_phone.strip(),
+                    "email":        s_email.strip(),
+                })
+                for k in ("cap_s_name", "cap_s_pos", "cap_s_org", "cap_s_phone", "cap_s_email"):
+                    st.session_state.pop(k, None)
+                st.rerun()
+            else:
+                st.warning("Name is required.")
+
+    # Show added stakeholders
+    ext_stk = st.session_state.cap_ext_stakeholders
+    if ext_stk:
+        for i, s in enumerate(ext_stk):
+            col_info, col_del = st.columns([5, 1])
+            with col_info:
+                st.markdown(
+                    f"<div style='background:#f8f9fc;border:1px solid #e2e8f0;border-radius:10px;"
+                    f"padding:0.45rem 0.8rem;font-size:0.88rem;color:#0f172a'>"
+                    f"<strong>{s['name']}</strong>"
+                    f"{' · ' + s['position'] if s['position'] else ''}"
+                    f"{' · ' + s['organisation'] if s['organisation'] else ''}"
+                    f"{' · ' + s['phone'] if s['phone'] else ''}"
+                    f"{' · ' + s['email'] if s['email'] else ''}"
+                    f"</div>",
+                    unsafe_allow_html=True,
+                )
+            with col_del:
+                if st.button("Remove", key=f"cap_del_ext_{i}"):
+                    st.session_state.cap_ext_stakeholders.pop(i)
+                    st.rerun()
 
     # ----- Audio / transcript -----
     st.markdown("### Transcript")
@@ -185,7 +294,7 @@ def render() -> None:
             "Organization Type": organization_type,
             "Departments": ", ".join(departments),
             "Report By": updated_by,
-            "Stakeholders": stakeholders_raw,
+            "TC Members": ", ".join(st.session_state.get("cap_tc_members", [])),
             "Meeting Date": meeting_date.isoformat(),
             "Activity ID": activity_id,
         }
@@ -198,7 +307,8 @@ def render() -> None:
                     "activity_id": activity_id,
                     "meeting_date": meeting_date.isoformat(),
                     "departments": departments,
-                    "stakeholders": [s.strip() for s in stakeholders_raw.split(",") if s.strip()],
+                    "tc_members": list(st.session_state.get("cap_tc_members", [])),
+                    "external_stakeholders": list(st.session_state.get("cap_ext_stakeholders", [])),
                     "updated_by": updated_by,
                     "transcript": transcript,
                     "category": category,
@@ -261,6 +371,14 @@ def render() -> None:
             if st.button("Save meeting", type="primary", key="cap_save"):
                 meeting = _build_meeting_record(pending)
                 st.session_state.meetings.append(meeting)
+                # Sync external stakeholders to central directory
+                try:
+                    upsert_stakeholders_from_meeting(
+                        meeting["id"],
+                        pending.get("external_stakeholders", []),
+                    )
+                except Exception:
+                    pass
                 try:
                     save_meeting(meeting)
                     st.success(f"Saved meeting {meeting['activityId']}.")
@@ -331,7 +449,8 @@ def _build_meeting_record(pending: dict) -> dict:
         "department": ", ".join(pending["departments"]),
         "activityId": pending["activity_id"],
         "meetingID": pending["activity_id"],
-        "stakeholders": pending["stakeholders"],
+        "stakeholders": pending.get("tc_members", []),
+        "externalStakeholders": pending.get("external_stakeholders", []),
         "companies": [],
         "keyDecisions": result.get("key_decisions", []),
         "discussionPoints": result.get("discussion_points", []),
