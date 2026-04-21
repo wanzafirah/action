@@ -205,7 +205,8 @@ def render() -> None:
                 for d, v in dept_stats.items()
             }
             top = sorted(dept_rates.items(), key=lambda x: x[1])[-10:]
-            depts  = [x[0] for x in top]
+            # Truncate long dept names (take first item before comma, max 32 chars)
+            depts  = [x[0].split(",")[0].strip()[:32] for x in top]
             values = [x[1] for x in top]
             colors_bar = [_C_GREEN if v >= 75 else _C_ACCENT if v >= 40 else _C_PINK for v in values]
             fig3 = go.Figure(go.Bar(
@@ -217,8 +218,8 @@ def render() -> None:
                 textposition="outside",
                 hovertemplate="<b>%{y}</b>: %{x}%<extra></extra>",
             ))
-            fig3.update_layout(**_chart_layout(height=300))
-            fig3.update_xaxes(range=[0, 110], showgrid=False)
+            fig3.update_layout(**_chart_layout(height=320))
+            fig3.update_xaxes(range=[0, 115], showgrid=False, tickfont=dict(size=11, color="#0f172a"))
             st.plotly_chart(fig3, use_container_width=True, config={"displayModeBar": False})
         else:
             st.info("No department data.")
@@ -229,14 +230,18 @@ def render() -> None:
         for a in all_actions:
             if normalize_status(a) in ("Done", "Cancelled"):
                 continue
-            owner = normalize_value(a.get("owner"), "Not stated")
-            if not _is_person(owner):
-                continue
-            person_pending[owner] += 1
+            raw_owner = normalize_value(a.get("owner"), "Not stated")
+            # Split comma-separated names (e.g. "Aisyah, Farhan, Mei Ling")
+            names_list = [n.strip() for n in raw_owner.split(",") if n.strip()]
+            for owner in names_list:
+                if not _is_person(owner):
+                    continue
+                person_pending[owner] += 1
 
         if person_pending:
             top_p = sorted(person_pending.items(), key=lambda x: x[1])[-10:]
-            names  = [x[0] for x in top_p]
+            # Truncate long names just in case
+            names  = [x[0][:28] for x in top_p]
             counts = [x[1] for x in top_p]
             bar_colors = [_C_RED if c >= 5 else _C_AMBER if c >= 3 else _C_ACCENT for c in counts]
             fig4 = go.Figure(go.Bar(
@@ -248,8 +253,8 @@ def render() -> None:
                 textposition="outside",
                 hovertemplate="<b>%{y}</b>: %{x} pending<extra></extra>",
             ))
-            fig4.update_layout(**_chart_layout(height=300))
-            fig4.update_xaxes(showgrid=False)
+            fig4.update_layout(**_chart_layout(height=320))
+            fig4.update_xaxes(showgrid=False, tickfont=dict(size=11, color="#0f172a"))
             st.plotly_chart(fig4, use_container_width=True, config={"displayModeBar": False})
         else:
             st.info("No named assignees with pending actions.")
@@ -299,13 +304,13 @@ def _chart_layout(height: int = 280, show_legend: bool = True) -> dict:
     """Shared clean Plotly layout config."""
     return dict(
         height=height,
-        margin=dict(l=0, r=10, t=10, b=0),
+        margin=dict(l=10, r=30, t=10, b=0),
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
-        font=dict(family="Aptos, Segoe UI, Arial, sans-serif", size=11, color="#27425D"),
+        font=dict(family="Aptos, Segoe UI, Arial, sans-serif", size=11, color="#0f172a"),
         showlegend=show_legend,
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0),
-        xaxis=dict(showgrid=False, zeroline=False, tickfont=dict(size=10)),
-        yaxis=dict(showgrid=True, gridcolor="#f0f0f5", zeroline=False, tickfont=dict(size=10)),
+        xaxis=dict(showgrid=False, zeroline=False, tickfont=dict(size=11, color="#0f172a")),
+        yaxis=dict(showgrid=True, gridcolor="#f0f0f5", zeroline=False, tickfont=dict(size=11, color="#0f172a"), automargin=True),
         hoverlabel=dict(bgcolor="white", bordercolor="#d8dceb", font_size=12),
     )
