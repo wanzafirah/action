@@ -29,20 +29,23 @@ SUPPORTED_DOCS = ["pdf", "docx", "xlsx", "xls", "csv"]
 def _clear_all_inputs() -> None:
     """Reset every capture form field and the generated brief back to defaults.
     External stakeholders are intentionally preserved — clear them separately.
+
+    The transcript text_area is reset by bumping a counter used as part of its key.
+    This forces Streamlit to create a brand-new widget (empty by default) without
+    needing to write directly to the widget key, which some Streamlit versions forbid.
     """
-    # Pop non-widget keys and file-uploader keys
     for k in [
         "cap_category", "cap_title", "cap_date", "cap_type", "cap_org",
         "cap_depts", "cap_updated_by", "cap_tc_members",
         "cap_mode", "cap_translate", "cap_audio_upload", "cap_audio_record",
         "cap_docs", "cap_ext_excel",
+        "cap_transcript",
         "pending_result", "cap_email_draft", "cap_email_ta",
         "cap_pdf_bytes", "cap_pdf_title",
     ]:
         st.session_state.pop(k, None)
-    # Explicitly set transcript to "" so the text_area widget resets reliably
-    st.session_state["cap_transcript"] = ""
-    st.session_state["cap_transcript_editor"] = ""
+    # Bump the clear counter → the text_area gets a new key → renders empty
+    st.session_state["cap_clear_n"] = st.session_state.get("cap_clear_n", 0) + 1
     st.session_state._cap_id_val = ""
     # Clear any leftover action-card widget keys from a previous brief
     stale = [k for k in st.session_state if k.startswith((
@@ -280,18 +283,19 @@ def render() -> None:
                         current, extract_text_from_document(d)
                     )
                 st.session_state.cap_transcript = current
-                # Also update the text_area widget key so it re-renders with new value
-                st.session_state.cap_transcript_editor = current
                 st.success(f"Added content from {len(docs)} document(s).")
                 st.rerun()
             except Exception as exc:
                 st.error(f"Could not read document: {exc}")
 
+    # The key includes a counter so "Clear all inputs" forces a fresh empty widget
+    # without needing to write to the widget key directly (which Streamlit forbids).
+    _ta_key = f"cap_transcript_editor_{st.session_state.get('cap_clear_n', 0)}"
     transcript = st.text_area(
         "Transcript (editable)",
         value=st.session_state.get("cap_transcript", ""),
         height=260,
-        key="cap_transcript_editor",
+        key=_ta_key,
     )
     st.session_state.cap_transcript = transcript
 
