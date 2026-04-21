@@ -55,7 +55,7 @@ def render() -> None:
         "<div style='background:linear-gradient(135deg,#f0f4ff,#fdf0f8);"
         "border:1px solid #d8dceb;border-radius:18px;padding:1rem 1.2rem;margin-bottom:1.2rem'>"
         "<div style='font-weight:800;font-size:1rem;color:#0E1B48;margin-bottom:0.2rem'>"
-        "🔍 Find my tasks</div>"
+        "Find my tasks</div>"
         "<div style='font-size:0.88rem;color:#6e7f96'>"
         "Enter your name to see all action items assigned to you.</div>"
         "</div>",
@@ -78,7 +78,7 @@ def render() -> None:
     # ══════════════════════════════════════════════════════════════
     st.markdown(
         "<div style='font-weight:800;font-size:1rem;color:#0E1B48;margin:0.5rem 0 0.8rem'>"
-        "👥 Team overview</div>",
+        "Team overview</div>",
         unsafe_allow_html=True,
     )
 
@@ -171,7 +171,7 @@ def _render_personal_view(name: str, people_actions: dict[str, list]) -> None:
             f"<div style='font-size:0.82rem;color:#6e7f96'>"
             f"{total} tasks &nbsp;·&nbsp; {done} done &nbsp;·&nbsp; "
             f"{pending} pending &nbsp;·&nbsp; {in_prog} in progress"
-            f"{'&nbsp;·&nbsp; <span style=color:#991b1b;font-weight:700>' + str(overdue) + ' overdue</span>' if overdue > 0 else ''}"
+            f"{'&nbsp;·&nbsp; <span style=color:#991b1b;font-weight:700>' + str(overdue) + ' overdue</span>' if overdue > 0 else ''}"  # noqa
             f"</div></div></div>"
             f"<div style='text-align:center'>"
             f"<div style='font-size:2rem;font-weight:800;color:{ring}'>{rate}%</div>"
@@ -208,12 +208,12 @@ def _render_person_card(row: dict) -> None:
     ring    = "#22c55e" if rate >= 75 else "#f59e0b" if rate >= 40 else "#ef4444"
 
     ob = (f"<span style='background:#fee2e2;color:#991b1b;padding:0.2rem 0.55rem;"
-          f"border-radius:999px;font-size:0.76rem;font-weight:700'>⚠ {overdue} overdue</span> "
+          f"border-radius:999px;font-size:0.76rem;font-weight:700'>{overdue} overdue</span> "
           if overdue > 0 else
           f"<span style='background:#dcfce7;color:#166534;padding:0.2rem 0.55rem;"
-          f"border-radius:999px;font-size:0.76rem;font-weight:700'>✓ On track</span> ")
+          f"border-radius:999px;font-size:0.76rem;font-weight:700'>On track</span> ")
 
-    with st.expander(f"{person}  ·  {rate}% complete  {'⚠' if overdue > 0 else '✓'}", expanded=False):
+    with st.expander(f"{person}  ·  {rate}% complete  {'[overdue]' if overdue > 0 else ''}", expanded=False):
         st.markdown(
             f"<div style='display:flex;align-items:center;justify-content:space-between;"
             f"gap:0.8rem;margin-bottom:0.7rem'>"
@@ -247,7 +247,7 @@ def _render_action_row(a: dict) -> None:
 
     dl = days_left(deadline) if deadline not in ("None", "Not stated", "") else None
     if dl is not None and dl < 0:
-        dl_html = f"<span style='color:#991b1b;font-weight:700'>⚠ {abs(dl)}d overdue</span>"
+        dl_html = f"<span style='color:#991b1b;font-weight:700'>{abs(dl)}d overdue</span>"
     elif dl == 0:
         dl_html = "<span style='color:#92400e;font-weight:700'>🔔 Due today</span>"
     elif dl is not None and dl <= 3:
@@ -265,7 +265,7 @@ def _render_action_row(a: dict) -> None:
         f"{pill(status, cfg['color'], cfg['bg'])}"
         f"</div>"
         f"<div style='font-size:0.8rem;color:#6e7f96;margin-top:0.28rem'>"
-        f"📋 {mtitle} &nbsp;|&nbsp; Deadline: {deadline} &nbsp;|&nbsp; {dl_html}"
+        f"Meeting: {mtitle} &nbsp;|&nbsp; Deadline: {deadline} &nbsp;|&nbsp; {dl_html}"
         f"</div></div>",
         unsafe_allow_html=True,
     )
