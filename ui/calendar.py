@@ -55,32 +55,35 @@ def render(meetings: list) -> None:
     # ── Interactive day buttons + detail (collapsed by default) ────────
     pending   = get_pending_deadline_days(meetings, year, month)
     conducted = get_meeting_conducted_days(meetings, year, month)
+    all_highlighted = sorted((conducted | pending))
+
+    if not all_highlighted:
+        return
+
+    # ── Checkbox toggle — state persists across reruns unlike st.expander ──
+    show = st.checkbox("View date details", key="cal_show_details")
+    if not show:
+        return
 
     st.markdown(
-        "<div style='font-size:0.75rem;color:#6e7f96;margin: 1rem 0 0.3rem'>"
+        "<div style='font-size:0.75rem;color:#6e7f96;margin-bottom:0.3rem'>"
         "📋 = meeting held &nbsp;&nbsp; 🔔 = deadline due &nbsp;— press a date below</div>",
         unsafe_allow_html=True,
     )
 
-    import calendar
-    _, last_day = calendar.monthrange(year, month)
-    all_days = list(range(1, last_day + 1))
-
     MAX_COLS = 7
-    rows = [all_days[i:i+MAX_COLS] for i in range(0, len(all_days), MAX_COLS)]
+    rows = [all_highlighted[i:i+MAX_COLS] for i in range(0, len(all_highlighted), MAX_COLS)]
 
     for row in rows:
         cols = st.columns(MAX_COLS)
         for i, day_num in enumerate(row):
             is_m = day_num in conducted
             is_d = day_num in pending
-            
-            label = str(day_num)
             if is_m and is_d:
                 label = f"📋🔔 {day_num}"
             elif is_m:
                 label = f"📋 {day_num}"
-            elif is_d:
+            else:
                 label = f"🔔 {day_num}"
 
             date_iso = date(year, month, day_num).isoformat()
@@ -159,10 +162,3 @@ def render(meetings: list) -> None:
                 )
         else:
             st.caption("No tasks found for this date.")
-
-    if not is_m and not is_d:
-        st.markdown(
-            "<div style='font-size:0.85rem;color:#6e7f96;margin-top:0.5rem'>"
-            "No meetings or tasks scheduled for this date.</div>",
-            unsafe_allow_html=True,
-        )
