@@ -9,6 +9,7 @@ NAV_ITEMS = [
     ("People Tracker", "People"),
     ("Capture",        "Capture"),
     ("Chat History",   "History"),
+    ("Companies",      "Companies"),
     ("Stakeholders",   "Stakeholders"),
     ("Analytics",      "Analytics"),
 ]
