@@ -26,6 +26,60 @@ SUPPORTED_AUDIO = ["mp3", "m4a", "wav", "mp4", "mpeg", "mpga", "webm"]
 SUPPORTED_DOCS = ["pdf", "docx", "xlsx", "xls", "csv"]
 
 
+def _render_company_history(result: dict, meetings: list) -> None:
+    """Show a table of past meetings involving companies mentioned in this meeting."""
+    import pandas as pd
+
+    orgs = (result.get("nlp_pipeline") or {}).get("named_entities", {}).get("organizations", [])
+    if not orgs or not meetings:
+        return
+
+    rows = []
+    seen = set()
+    for org in orgs:
+        org_l = org.lower().strip()
+        if not org_l or len(org_l) < 3:
+            continue
+        for m in meetings:
+            hit = False
+            # Match against external stakeholder organisations
+            for s in (m.get("externalStakeholders") or []):
+                if org_l in s.get("organisation", "").lower():
+                    hit = True
+                    break
+            # Match against title and summary
+            if not hit:
+                haystack = f"{m.get('title', '')} {m.get('summary', '')}".lower()
+                if org_l in haystack:
+                    hit = True
+            if hit:
+                key = (org_l, m.get("id") or m.get("activityId", ""))
+                if key not in seen:
+                    seen.add(key)
+                    rows.append({
+                        "Date":     m.get("date", ""),
+                        "Company":  org,
+                        "Activity": m.get("title", "Untitled"),
+                    })
+
+    if not rows:
+        return
+
+    rows.sort(key=lambda r: r["Date"], reverse=True)
+    st.markdown("### Previous activity with companies in this meeting")
+    st.caption("Companies mentioned above that appeared in earlier meeting records.")
+    st.dataframe(
+        pd.DataFrame(rows),
+        use_container_width=True,
+        hide_index=True,
+        column_config={
+            "Date":     st.column_config.TextColumn("Date",     width="small"),
+            "Company":  st.column_config.TextColumn("Company",  width="medium"),
+            "Activity": st.column_config.TextColumn("Activity", width="large"),
+        },
+    )
+
+
 def _clear_all_inputs() -> None:
     """Reset every capture form field and the generated brief back to defaults.
     External stakeholders are intentionally preserved — clear them separately.
@@ -39,7 +93,7 @@ def _clear_all_inputs() -> None:
         "cap_depts", "cap_updated_by", "cap_tc_members",
         "cap_mode", "cap_translate", "cap_audio_upload", "cap_audio_record",
         "cap_docs", "cap_ext_excel",
-        "cap_transcript",
+        "cap_transcript", "cap_transcript_original",
         "cap_ext_stakeholders",
         "pending_result", "cap_email_draft", "cap_email_ta",
         "cap_pdf_bytes", "cap_pdf_title",
@@ -262,7 +316,7 @@ def render() -> None:
             try:
                 text = transcribe_audio_file(audio_source, translate)
                 st.session_state.cap_transcript = text
-                st.session_state.cap_transcript_editor = text
+                st.session_state.cap_transcript_original = text   # save raw Whisper output
                 st.success("Transcript ready — edit below if needed.")
                 st.rerun()
             except Exception as exc:
@@ -329,6 +383,7 @@ def render() -> None:
         }
         with st.spinner("Analyzing transcript…"):
             try:
+                import json as _json
                 result = run_pipeline(transcript, metadata)
                 st.session_state.pending_result = {
                     "result": result,
@@ -340,6 +395,9 @@ def render() -> None:
                     "external_stakeholders": list(st.session_state.get("cap_ext_stakeholders", [])),
                     "updated_by": updated_by,
                     "transcript": transcript,
+                    # originals — snapshot before user edits
+                    "transcript_original": st.session_state.get("cap_transcript_original", ""),
+                    "recap_original": _json.dumps(result, ensure_ascii=False),
                     "category": category,
                 }
             except Exception as exc:
@@ -351,6 +409,9 @@ def render() -> None:
         st.markdown("---")
         result = pending["result"]
         summary_panel(result)
+
+        # ── Company history table ─────────────────────────────────────
+        _render_company_history(result, meetings)
 
         # ── Copy Email button ─────────────────────────────────────────
         if st.button("Copy Meeting Summary Email", key="cap_email_btn"):
@@ -493,4 +554,7 @@ def _build_meeting_record(pending: dict) -> dict:
         "keyDecisions": result.get("key_decisions", []),
         "discussionPoints": result.get("discussion_points", []),
         "actions": result.get("action_items", []),
+        # Original snapshots for comparison
+        "transcript_original": pending.get("transcript_original", ""),
+        "recap_original": pending.get("recap_original", ""),
     }
