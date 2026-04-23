@@ -10,14 +10,14 @@ import streamlit as st
 
 from core.database import load_all
 from ui import sidebar
-from views import analytics, capture, dashboard, history, people, stakeholders, tracker
+from views import analytics, capture, companies, dashboard, history, people, stakeholders, tracker
 from ui.styles import inject_css
 
 
 # ------------------------------------------------------------------
 # Page setup  (must be the very first Streamlit call)
 # ------------------------------------------------------------------
-st.set_page_config(page_title="AI-Powered Meeting Insight Generator and Action Tracker", page_icon="", layout="wide")
+st.set_page_config(page_title="AI-Powered Meeting Insight Generator and Action Tracker", page_icon="🧠", layout="wide")
 inject_css()
 
 
@@ -46,10 +46,11 @@ sidebar.render()
 
 PAGES = {
     "Dashboard":    dashboard.render,
-    "Capture":      capture.render,
     "Tracker":      tracker.render,
-    "History":      history.render,
     "People":       people.render,
+    "Capture":      capture.render,
+    "History":      history.render,
+    "Companies":    companies.render,
     "Stakeholders": stakeholders.render,
     "Analytics":    analytics.render,
 }
