@@ -46,10 +46,10 @@ sidebar.render()
 
 PAGES = {
     "Dashboard":    dashboard.render,
-    "Tracker":      tracker.render,
-    "People":       people.render,
     "Capture":      capture.render,
+    "Tracker":      tracker.render,
     "History":      history.render,
+    "People":       people.render,
     "Companies":    companies.render,
     "Stakeholders": stakeholders.render,
     "Analytics":    analytics.render,
