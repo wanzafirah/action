@@ -67,19 +67,20 @@ def render(meetings: list) -> None:
 
     st.markdown(
         "<div style='font-size:0.75rem;color:#6e7f96;margin-bottom:0.3rem'>"
-        "M = meeting held &nbsp;&nbsp; D = deadline due &nbsp;— press a date below</div>",
+        "Blue = meeting held &nbsp;&nbsp; Yellow border = deadline due &nbsp;— press a date below</div>",
         unsafe_allow_html=True,
     )
 
-    # Compact button CSS — prevents number characters wrapping to a new line
+    # Compact button CSS — square, tight padding so pure numbers never wrap
     st.markdown(
         "<style>"
         "div[data-testid='stHorizontalBlock'] > div[data-testid='stColumn'] button {"
         "  white-space: nowrap !important;"
-        "  padding: 0.2rem 0.1rem !important;"
-        "  font-size: 0.78rem !important;"
-        "  min-height: 1.9rem !important;"
-        "  line-height: 1.2 !important;"
+        "  padding: 0.25rem 0.15rem !important;"
+        "  font-size: 0.85rem !important;"
+        "  min-height: 2rem !important;"
+        "  line-height: 1 !important;"
+        "  font-weight: 700 !important;"
         "}"
         "</style>",
         unsafe_allow_html=True,
@@ -93,13 +94,8 @@ def render(meetings: list) -> None:
         for i, day_num in enumerate(row):
             is_m = day_num in conducted
             is_d = day_num in pending
-            # Short labels so content never wraps inside a narrow button
-            if is_m and is_d:
-                label = f"M·D {day_num}"
-            elif is_m:
-                label = f"M {day_num}"
-            else:
-                label = f"D {day_num}"
+            # Just the day number — type indicated by button colour (primary = meeting, secondary = deadline)
+            label = str(day_num)
 
             date_iso = date(year, month, day_num).isoformat()
             selected = st.session_state.get("cal_selected")
