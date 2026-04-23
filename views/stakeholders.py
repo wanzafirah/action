@@ -98,6 +98,34 @@ def render() -> None:
 
     df = _to_df(display_s)
 
+    # ── Table style injection ────────────────────────────────────────
+    st.markdown(
+        "<style>"
+        "[data-testid='stDataFrame'] thead tr th {"
+        "  background:#f8fafc !important;"
+        "  color:#64748b !important;"
+        "  font-size:0.76rem !important;"
+        "  text-transform:uppercase !important;"
+        "  letter-spacing:0.04em !important;"
+        "  font-weight:700 !important;"
+        "  padding:0.55rem 0.8rem !important;"
+        "  border-bottom:2px solid #e2e8f0 !important;"
+        "}"
+        "[data-testid='stDataFrame'] tbody tr td {"
+        "  padding:0.5rem 0.8rem !important;"
+        "  font-size:0.88rem !important;"
+        "  border-bottom:1px solid #f1f5f9 !important;"
+        "}"
+        "[data-testid='stDataFrame'] tbody tr:nth-child(even) {"
+        "  background:#f8fafc !important;"
+        "}"
+        "[data-testid='stDataFrame'] tbody tr:hover {"
+        "  background:#eff6ff !important;"
+        "}"
+        "</style>",
+        unsafe_allow_html=True,
+    )
+
     # ── Editable table ───────────────────────────────────────────────
     edited_df = st.data_editor(
         df,
@@ -106,7 +134,7 @@ def render() -> None:
         use_container_width=True,
         hide_index=True,
         column_config={
-            "_id": None,             # hide internal ID column
+            "_id":          None,    # hide internal ID column
             "Name":         st.column_config.TextColumn("Name",         width="medium"),
             "Position":     st.column_config.TextColumn("Position",     width="medium"),
             "Organisation": st.column_config.TextColumn("Organisation", width="medium"),
