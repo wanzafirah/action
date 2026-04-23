@@ -94,6 +94,8 @@ def _serialize_meeting(meeting: dict) -> dict:
         "follow_up": bool(meeting.get("followUp", False)),
         "follow_up_reason": meeting.get("followUpReason", ""),
         "transcript": meeting.get("transcript", ""),
+        "transcript_original": meeting.get("transcript_original", ""),
+        "recap_original": meeting.get("recap_original", ""),
         "department": meeting.get("deptName") or meeting.get("department", ""),
         "activity_id": meeting.get("activityId") or meeting.get("meetingID", ""),
         # JSON fields
@@ -120,6 +122,8 @@ def _deserialize_meeting(row: dict) -> dict:
         "followUp": bool(row.get("follow_up", False)),
         "followUpReason": row.get("follow_up_reason", ""),
         "transcript": row.get("transcript", ""),
+        "transcript_original": row.get("transcript_original", ""),
+        "recap_original": row.get("recap_original", ""),
         "deptName": row.get("department", ""),
         "department": row.get("department", ""),
         "activityId": row.get("activity_id", ""),
