@@ -18,12 +18,15 @@ import pandas as pd
 
 _CSV_PATH = Path(__file__).parent.parent / "datacompany 1.csv"
 
-# Legal / filler words stripped before matching
+# Legal / filler words stripped before matching.
+# Generic nouns like "company" are included so a query of
+# "Company Ventures Sdn Bhd" reduces to just "ventures" and still
+# matches "1337 VENTURES SDN BHD" in the database.
 _STRIP_PAT = re.compile(
     r'\b(sdn\.?\s*bhd\.?|sdn|bhd|berhad|malaysia|formerly|known\s+as|'
     r'previously|ltd\.?|limited|inc\.?|corp\.?|llc|plc|holdings|'
     r'international|industries|enterprise|services|solutions|group|'
-    r'm\.?\s*bhd\.?)\b',
+    r'company|companies|the|of|and|m\.?\s*bhd\.?)\b',
     re.IGNORECASE,
 )
 _NONWORD = re.compile(r'[^\w\s]')
@@ -70,12 +73,16 @@ def search_company_names(query: str, limit: int = 25) -> list[str]:
     return df[mask]['CompanyName'].drop_duplicates().sort_values().head(limit).tolist()
 
 
-def get_company_programmes(company_name: str) -> list[dict]:
+def get_company_programmes(company_name: str, max_matches: int = 30) -> list[dict]:
     """Return TalentCorp programme history for *company_name* using fuzzy matching.
 
-    Strips legal suffixes from both the query and stored names, then requires
-    every significant token (length > 2) in the query to appear in the stored
-    normalised name.
+    Strips legal suffixes and generic words (including "company") from both the
+    query and stored names, then requires every significant token (length > 2)
+    in the query to appear in the stored normalised name.
+
+    Returns [] if the query is too generic (matches more than *max_matches*
+    distinct companies — it means the token is a common word like "ventures"
+    and cannot identify a specific company).
 
     Returns list of dicts:
         {company_name, company_type, programme, date, sector}
@@ -97,6 +104,10 @@ def get_company_programmes(company_name: str) -> list[dict]:
 
     results = df[mask].copy()
     if results.empty:
+        return []
+
+    # If too many distinct companies match, the query is too generic to be useful
+    if results['CompanyName'].nunique() > max_matches:
         return []
 
     seen: set = set()
