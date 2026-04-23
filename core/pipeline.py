@@ -309,20 +309,24 @@ def chat_with_meetings(question: str, meetings: list) -> str:
 
     meeting_context = "\n\n".join(blocks) if blocks else "No meeting data available."
 
-    # Include the global external stakeholder directory
-    try:
-        from core.stakeholder_db import load_external_stakeholders
-        all_stk = load_external_stakeholders()
-        if all_stk:
-            stk_lines = [
-                f"  {s.get('name','')} | Position: {s.get('position','')} | Organisation: {s.get('organisation','')} | Phone: {s.get('phone','')} | Email: {s.get('email','')} | Added: {s.get('date_added','')}"
-                for s in all_stk
-            ]
-            stk_context = "--- Stakeholder Directory ---\n" + "\n".join(stk_lines)
-        else:
-            stk_context = "--- Stakeholder Directory ---\nNo external stakeholders recorded."
-    except Exception:
-        stk_context = ""
+    # Only load stakeholder directory if the question is about contacts/people —
+    # skipping it for unrelated questions reduces context size and speeds up responses.
+    _contact_kws = ("contact", "phone", "email", "stakeholder", "organisation",
+                    "company", "who is", "siapa", "nombor", "address")
+    _needs_stk = any(kw in question.lower() for kw in _contact_kws)
+    stk_context = ""
+    if _needs_stk:
+        try:
+            from core.stakeholder_db import load_external_stakeholders
+            all_stk = load_external_stakeholders()
+            if all_stk:
+                stk_lines = [
+                    f"  {s.get('name','')} | Position: {s.get('position','')} | Organisation: {s.get('organisation','')} | Phone: {s.get('phone','')} | Email: {s.get('email','')} | Added: {s.get('date_added','')}"
+                    for s in all_stk
+                ]
+                stk_context = "--- Stakeholder Directory ---\n" + "\n".join(stk_lines)
+        except Exception:
+            pass
 
     full_context = meeting_context + ("\n\n" + stk_context if stk_context else "")
 
@@ -351,3 +355,75 @@ def chat_with_meetings(question: str, meetings: list) -> str:
     # num_ctx=2048 and max_tokens=300 keep the chat response fast.
     # The full pipeline uses 3072/1200 — chat needs less because summaries are truncated.
     return call_ollama(CHAT_SYSTEM, user_msg, max_tokens=300, num_ctx=2048)
+
+
+def stream_chat_with_meetings(question: str, meetings: list):
+    """Streaming version of chat_with_meetings — yields text chunks as they arrive."""
+    from utils.helpers import join_list, normalize_status
+    from core.services import stream_ollama
+
+    # Build identical context to chat_with_meetings
+    blocks = []
+    for m in meetings:
+        actions = m.get("actions", []) or []
+        overdue_actions = [a for a in actions if normalize_status(a) == "Overdue"]
+        action_lines = [
+            f"  [{normalize_status(a)}] {normalize_value(a.get('text'))} "
+            f"| owner: {normalize_value(a.get('owner'), 'Not stated')} "
+            f"| deadline: {normalize_value(a.get('deadline'), 'Not stated')}"
+            for a in actions
+        ]
+        ext_stk = m.get("externalStakeholders") or []
+        ext_lines = [
+            f"  {s.get('name','')} | {s.get('position','')} | {s.get('organisation','')} | {s.get('phone','')} | {s.get('email','')}"
+            for s in ext_stk if s.get("name")
+        ]
+        overdue_flag = f"HAS OVERDUE ACTIONS: YES ({len(overdue_actions)} overdue)" if overdue_actions else "HAS OVERDUE ACTIONS: NO"
+        summary_short = normalize_value(m.get('summary') or m.get('recaps'), 'No summary.')[:200]
+        blocks.append("\n".join(filter(None, [
+            "--- Meeting ---",
+            f"Date: {m.get('date', '')}",
+            f"Title: {m.get('title', '')}",
+            overdue_flag,
+            f"TC Members: {join_list(m.get('stakeholders', []), 'None')}",
+            f"External Stakeholders: {chr(10).join(ext_lines) if ext_lines else 'None'}",
+            f"Summary: {summary_short}",
+            f"Total action items: {len(actions)}",
+            "Action items:" if action_lines else "Action items: None",
+            "\n".join(action_lines) if action_lines else "",
+        ])))
+
+    meeting_context = "\n\n".join(blocks) if blocks else "No meeting data available."
+
+    _contact_kws = ("contact", "phone", "email", "stakeholder", "organisation",
+                    "company", "who is", "siapa", "nombor", "address")
+    stk_context = ""
+    if any(kw in question.lower() for kw in _contact_kws):
+        try:
+            from core.stakeholder_db import load_external_stakeholders
+            all_stk = load_external_stakeholders()
+            stk_lines = [
+                f"  {s.get('name','')} | {s.get('position','')} | {s.get('organisation','')} | {s.get('email','')}"
+                for s in all_stk if s.get("name")
+            ]
+            stk_context = ("--- Stakeholder Directory ---\n" + "\n".join(stk_lines)) if stk_lines else ""
+        except Exception:
+            pass
+
+    full_context = meeting_context + ("\n\n" + stk_context if stk_context else "")
+
+    overdue_meetings = [m for m in meetings if any(normalize_status(a) == "Overdue" for a in (m.get("actions") or []))]
+    total_overdue = sum(sum(1 for a in (m.get("actions") or []) if normalize_status(a) == "Overdue") for m in meetings)
+
+    from config.constants import CHAT_SYSTEM
+    user_msg = (
+        f"FACTS (pre-computed — use these exact numbers, do not recount):\n"
+        f"- Total meetings: {len(meetings)}\n"
+        f"- Meetings with at least one overdue action: {len(overdue_meetings)}"
+        + (f" (titles: {', '.join(m.get('title','Untitled') for m in overdue_meetings)})" if overdue_meetings else "") + "\n"
+        f"- Total overdue action items across all meetings: {total_overdue}\n\n"
+        f"Data:\n{full_context}\n\n"
+        f"Question: {question}"
+    )
+
+    yield from stream_ollama(CHAT_SYSTEM, user_msg, max_tokens=300, num_ctx=2048)
