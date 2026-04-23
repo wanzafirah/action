@@ -26,60 +26,102 @@ SUPPORTED_AUDIO = ["mp3", "m4a", "wav", "mp4", "mpeg", "mpga", "webm"]
 SUPPORTED_DOCS = ["pdf", "docx", "xlsx", "xls", "csv"]
 
 
-def _render_company_history(result: dict, meetings: list) -> None:
-    """Show a table of past meetings involving companies mentioned in this meeting."""
-    import pandas as pd
+def _render_company_history(result: dict, meetings: list) -> None:  # noqa: ARG001
+    """Show TalentCorp programme history for companies mentioned in this meeting.
 
-    orgs = (result.get("nlp_pipeline") or {}).get("named_entities", {}).get("organizations", [])
-    if not orgs or not meetings:
-        return
+    Pulls company names from:
+    1. NLP pipeline named entities (organisations)
+    2. External stakeholders added in the form
 
-    rows = []
-    seen = set()
-    for org in orgs:
-        org_l = org.lower().strip()
-        if not org_l or len(org_l) < 3:
-            continue
-        for m in meetings:
-            hit = False
-            # Match against external stakeholder organisations
-            for s in (m.get("externalStakeholders") or []):
-                if org_l in s.get("organisation", "").lower():
-                    hit = True
-                    break
-            # Match against title and summary
-            if not hit:
-                haystack = f"{m.get('title', '')} {m.get('summary', '')}".lower()
-                if org_l in haystack:
-                    hit = True
-            if hit:
-                key = (org_l, m.get("id") or m.get("activityId", ""))
-                if key not in seen:
-                    seen.add(key)
-                    rows.append({
-                        "Date":     m.get("date", ""),
-                        "Company":  org,
-                        "Activity": m.get("title", "Untitled"),
-                        "Summary":  (m.get("summary") or "")[:180],
-                    })
+    Looks up each company against the TalentCorp CSV dataset (fuzzy match).
+    Shows a compact card per company: name, type, sector, programmes + dates.
+    If the company is not in the dataset, shows "None".
+    """
+    from utils.company_db import get_company_programmes
 
-    if not rows:
-        return
-
-    rows.sort(key=lambda r: r["Date"], reverse=True)
-    st.markdown("### Previous activity with companies in this meeting")
-    st.caption("Companies mentioned above that appeared in earlier meeting records.")
-    st.dataframe(
-        pd.DataFrame(rows),
-        use_container_width=True,
-        hide_index=True,
-        column_config={
-            "Date":     st.column_config.TextColumn("Date",     width="small"),
-            "Company":  st.column_config.TextColumn("Company",  width="medium"),
-            "Activity": st.column_config.TextColumn("Activity", width="medium"),
-            "Summary":  st.column_config.TextColumn("Summary",  width="large"),
-        },
+    # Collect candidate company names
+    orgs: list[str] = list(
+        (result.get("nlp_pipeline") or {})
+        .get("named_entities", {})
+        .get("organizations", [])
     )
+    ext_stk = st.session_state.get("cap_ext_stakeholders", [])
+    for s in ext_stk:
+        org = (s.get("organisation") or "").strip()
+        if org and org not in orgs:
+            orgs.append(org)
+
+    # Filter out very short / vague strings
+    orgs = [o for o in orgs if o and len(o.strip()) >= 3]
+    if not orgs:
+        return
+
+    # Look up all companies (deduplicate by lower name)
+    seen_lower: set[str] = set()
+    company_data: list[tuple[str, list[dict]]] = []
+    for org in orgs:
+        key = org.strip().lower()
+        if key in seen_lower:
+            continue
+        seen_lower.add(key)
+        history = get_company_programmes(org)
+        company_data.append((org, history))
+
+    if not company_data:
+        return
+
+    st.markdown("### TalentCorp Programme History")
+    st.caption(
+        "Programme participation for companies mentioned in this meeting. "
+        "Data sourced from TalentCorp records."
+    )
+
+    # Render cards — up to 3 per row
+    MAX_COLS = 3
+    for row_start in range(0, len(company_data), MAX_COLS):
+        chunk = company_data[row_start: row_start + MAX_COLS]
+        cols = st.columns(len(chunk))
+        for col, (company, history) in zip(cols, chunk):
+            with col:
+                if history:
+                    h0 = history[0]
+                    company_type = h0.get("company_type") or "Unknown"
+                    sector       = h0.get("sector")       or "—"
+
+                    prog_lines = ""
+                    for entry in history[:8]:
+                        prog = entry.get("programme") or "—"
+                        d    = entry.get("date")      or "—"
+                        prog_lines += (
+                            f"<li>{prog}"
+                            f"<span style='color:#6e7f96;font-size:0.78em'> {d}</span>"
+                            f"</li>"
+                        )
+
+                    st.markdown(
+                        f"<div style='background:#f8f9fc;border:1px solid #e2e8f0;"
+                        f"border-radius:14px;padding:0.9rem 1rem;margin-bottom:0.6rem'>"
+                        f"<div style='font-weight:800;font-size:0.95rem;color:#0f172a;"
+                        f"margin-bottom:0.25rem'>{company}</div>"
+                        f"<div style='font-size:0.78rem;color:#6e7f96;margin-bottom:0.5rem'>"
+                        f"{company_type} &nbsp;·&nbsp; {sector}</div>"
+                        f"<ul style='margin:0;padding-left:1.1rem;font-size:0.86rem;"
+                        f"color:#0f172a;line-height:1.6'>"
+                        f"{prog_lines}</ul>"
+                        f"</div>",
+                        unsafe_allow_html=True,
+                    )
+                else:
+                    st.markdown(
+                        f"<div style='background:#f8f9fc;border:1px solid #e2e8f0;"
+                        f"border-radius:14px;padding:0.9rem 1rem;margin-bottom:0.6rem'>"
+                        f"<div style='font-weight:800;font-size:0.95rem;color:#0f172a;"
+                        f"margin-bottom:0.25rem'>{company}</div>"
+                        f"<div style='font-size:0.82rem;color:#6e7f96'>"
+                        f"None — not found in TalentCorp programme records.</div>"
+                        f"</div>",
+                        unsafe_allow_html=True,
+                    )
 
 
 def _clear_all_inputs() -> None:
@@ -97,6 +139,8 @@ def _clear_all_inputs() -> None:
         "cap_docs", "cap_ext_excel",
         "cap_transcript", "cap_transcript_original",
         "cap_ext_stakeholders",
+        "cap_s_name", "cap_s_pos", "cap_s_org_query", "cap_s_org_select",
+        "cap_s_phone", "cap_s_email",
         "pending_result", "cap_email_draft", "cap_email_ta",
         "cap_pdf_bytes", "cap_pdf_title",
     ]:
@@ -232,12 +276,33 @@ def render() -> None:
     with st.expander("Add stakeholder manually", expanded=False):
         sc1, sc2 = st.columns(2)
         with sc1:
-            s_name = st.text_input("Name", key="cap_s_name")
-            s_org  = st.text_input("Organisation", key="cap_s_org")
+            s_name  = st.text_input("Name", key="cap_s_name")
             s_phone = st.text_input("Phone", key="cap_s_phone")
         with sc2:
             s_pos   = st.text_input("Position", key="cap_s_pos")
             s_email = st.text_input("Email", key="cap_s_email")
+
+        # Organisation — searchable combobox backed by TalentCorp company records
+        s_org_query = st.text_input(
+            "Organisation",
+            key="cap_s_org_query",
+            placeholder="Type to search TalentCorp records, or enter a new name…",
+        )
+        s_org = s_org_query.strip()
+        if len(s_org) >= 3:
+            try:
+                from utils.company_db import search_company_names as _sc
+                _matches = _sc(s_org)
+            except Exception:
+                _matches = []
+            if _matches:
+                _sel = st.selectbox(
+                    "Select from TalentCorp companies (or keep typed name above)",
+                    ["— Use name typed above —"] + _matches,
+                    key="cap_s_org_select",
+                )
+                if _sel != "— Use name typed above —":
+                    s_org = _sel
         if st.button("Add Stakeholder", key="cap_add_ext"):
             if s_name.strip():
                 st.session_state.cap_ext_stakeholders.append({
@@ -248,7 +313,8 @@ def render() -> None:
                     "phone":        s_phone.strip(),
                     "email":        s_email.strip(),
                 })
-                for k in ("cap_s_name", "cap_s_pos", "cap_s_org", "cap_s_phone", "cap_s_email"):
+                for k in ("cap_s_name", "cap_s_pos", "cap_s_org_query", "cap_s_org_select",
+                          "cap_s_phone", "cap_s_email"):
                     st.session_state.pop(k, None)
                 st.rerun()
             else:
