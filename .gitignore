@@ -7,3 +7,4 @@ __pycache__/
 !TC Staff Details.xlsx
 .DS_Store
 data/stakeholders.json
+!datacompany 1.csv
