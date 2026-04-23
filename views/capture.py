@@ -51,8 +51,14 @@ def _render_company_history(result: dict, meetings: list) -> None:  # noqa: ARG0
         if org and org not in orgs:
             orgs.append(org)
 
-    # Filter out very short / vague strings
-    orgs = [o for o in orgs if o and len(o.strip()) >= 3]
+    # Filter out very short / vague strings and TalentCorp itself
+    # (this system belongs to TalentCorp — no need to look up its own history)
+    _TC_NAMES = {"talentcorp", "talent corp", "talentcorp malaysia",
+                 "talent corporation", "tc", "mynext", "mytalent"}
+    orgs = [
+        o for o in orgs
+        if o and len(o.strip()) >= 3 and o.strip().lower() not in _TC_NAMES
+    ]
     if not orgs:
         return
 
