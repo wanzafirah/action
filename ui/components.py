@@ -148,29 +148,40 @@ def action_card(
 
     action_id = action.get("id", "")
 
-    # ── Give Idea button (AI project manager guidance) ───────────────
-    idea_key  = f"idea_{action_id}"
-    idea_open = f"idea_open_{action_id}"
-    if st.button("Give Idea", key=f"btn_idea_{action_id}", use_container_width=False):
-        if st.session_state.get(idea_open):
-            # Toggle off
-            st.session_state.pop(idea_key, None)
-            st.session_state[idea_open] = False
-        else:
-            with st.spinner("Thinking…"):
-                try:
-                    from core.pipeline import get_action_idea
-                    st.session_state[idea_key] = get_action_idea(action)
-                    st.session_state[idea_open] = True
-                except Exception as exc:
-                    st.session_state[idea_key] = f"Could not generate ideas: {exc}"
-                    st.session_state[idea_open] = True
+    # ── Edit / Give Idea toggle buttons side by side ─────────────────
+    edit_toggle_key = f"edit_open_{action_id}"
+    idea_key        = f"idea_{action_id}"
+    idea_open       = f"idea_open_{action_id}"
+
+    col_edit_btn, col_idea_btn = st.columns(2)
+    with col_edit_btn:
+        if st.button(
+            "Hide Edit" if st.session_state.get(edit_toggle_key) else "Edit",
+            key=f"btn_toggle_edit_{action_id}",
+            use_container_width=True,
+        ):
+            st.session_state[edit_toggle_key] = not st.session_state.get(edit_toggle_key, False)
+            st.rerun()
+    with col_idea_btn:
+        if st.button("Give Idea", key=f"btn_idea_{action_id}", use_container_width=True):
+            if st.session_state.get(idea_open):
+                st.session_state.pop(idea_key, None)
+                st.session_state[idea_open] = False
+            else:
+                with st.spinner("Thinking…"):
+                    try:
+                        from core.pipeline import get_action_idea
+                        st.session_state[idea_key] = get_action_idea(action)
+                        st.session_state[idea_open] = True
+                    except Exception as exc:
+                        st.session_state[idea_key] = f"Could not generate ideas: {exc}"
+                        st.session_state[idea_open] = True
             st.rerun()
 
+    # ── Give Idea panel ──────────────────────────────────────────────
     if st.session_state.get(idea_open) and st.session_state.get(idea_key):
         import re as _re
         _raw_idea = st.session_state[idea_key]
-        # Strip **bold** markdown symbols
         _clean_idea = _re.sub(r"\*\*(.+?)\*\*", r"\1", _raw_idea)
         _clean_idea = _re.sub(r"\*(.+?)\*", r"\1", _clean_idea)
         st.markdown(
@@ -181,6 +192,11 @@ def action_card(
             f"</div>",
             unsafe_allow_html=True,
         )
+
+    # ── Edit fields — shown only when Edit is toggled on ────────────
+    if not st.session_state.get(edit_toggle_key, False):
+        return
+
     # ── Editable task text ───────────────────────────────────────────
     new_text = st.text_input(
         "Task description",
@@ -205,10 +221,8 @@ def action_card(
         _cur_owner_raw = action.get("owner", "")
         if _cur_owner_raw in ("Not stated", "None"):
             _cur_owner_raw = ""
-        # Parse comma-separated names into a list
         _cur_owners = [n.strip() for n in _cur_owner_raw.split(",") if n.strip()]
         _tc_names = get_tc_names()
-        # Include any existing names not in TC list so they remain selectable
         _extra = [n for n in _cur_owners if n not in _tc_names]
         _owner_opts = _tc_names + _extra
         new_owners = st.multiselect(
