@@ -60,6 +60,7 @@ def _render_company_history(result: dict, meetings: list) -> None:
                         "Date":     m.get("date", ""),
                         "Company":  org,
                         "Activity": m.get("title", "Untitled"),
+                        "Summary":  (m.get("summary") or "")[:180],
                     })
 
     if not rows:
@@ -75,7 +76,8 @@ def _render_company_history(result: dict, meetings: list) -> None:
         column_config={
             "Date":     st.column_config.TextColumn("Date",     width="small"),
             "Company":  st.column_config.TextColumn("Company",  width="medium"),
-            "Activity": st.column_config.TextColumn("Activity", width="large"),
+            "Activity": st.column_config.TextColumn("Activity", width="medium"),
+            "Summary":  st.column_config.TextColumn("Summary",  width="large"),
         },
     )
 
