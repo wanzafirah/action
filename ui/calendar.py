@@ -65,12 +65,6 @@ def render(meetings: list) -> None:
     if not show:
         return
 
-    st.markdown(
-        "<div style='font-size:0.75rem;color:#6e7f96;margin-bottom:0.3rem'>"
-        "Blue = meeting held &nbsp;&nbsp; Yellow border = deadline due &nbsp;— press a date below</div>",
-        unsafe_allow_html=True,
-    )
-
     # Compact button CSS — square, tight padding so pure numbers never wrap
     st.markdown(
         "<style>"
