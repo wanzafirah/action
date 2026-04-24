@@ -325,24 +325,39 @@ def _render_chatbot(meetings: list) -> None:
         messages.append({"role": "user", "text": question})
         st.rerun()  # show user message immediately, then stream the reply
 
-    # Save chat — only visible once there are completed exchanges
+    # Save chat to history — visible once there is at least one answered exchange
     completed = [m for m in messages if m["role"] == "assistant"]
     if completed:
-        chat_lines = []
-        for entry in messages:
-            role_label = "You" if entry["role"] == "user" else "Assistant"
-            chat_lines.append(f"{role_label}:\n{entry['text']}\n")
-        chat_export = "\n".join(chat_lines)
-        from datetime import datetime as _dt
-        _fname = f"chat_{st.session_state.chat_user_id}_{_dt.now().strftime('%Y%m%d_%H%M')}.txt"
-        st.download_button(
-            label="Save chat",
-            data=chat_export,
-            file_name=_fname,
-            mime="text/plain",
-            key=f"chat_save__{st.session_state.chat_user_id}",
-            use_container_width=True,
-        )
+        save_key = f"chat_saved__{st.session_state.dashboard_chat_session_id}"
+        already_saved = st.session_state.get(save_key, False)
+        if already_saved:
+            st.caption("✅ Saved to Chat History")
+        else:
+            if st.button("Save chat", key=f"chat_save__{st.session_state.chat_user_id}",
+                         use_container_width=True):
+                session_id = st.session_state.get("dashboard_chat_session_id", uid())
+                # Save each Q&A pair that hasn't been stored yet
+                pairs = [(messages[i], messages[i + 1])
+                         for i in range(0, len(messages) - 1, 2)
+                         if messages[i]["role"] == "user"
+                         and i + 1 < len(messages)
+                         and messages[i + 1]["role"] == "assistant"]
+                for q_entry, a_entry in pairs:
+                    save_history_entry({
+                        "id": uid(),
+                        "user_id": st.session_state.chat_user_id,
+                        "thread_key": f"{st.session_state.chat_user_id}|{today_str()}|{session_id}",
+                        "thread_date": today_str(),
+                        "thread_title": q_entry["text"][:60],
+                        "timestamp": datetime.now().isoformat(timespec="seconds"),
+                        "question": q_entry["text"],
+                        "answer": a_entry["text"],
+                        "meeting_id": "",
+                        "meeting_title": "",
+                        "context": "general",
+                    })
+                st.session_state[save_key] = True
+                st.rerun()
 
     # If the last message is from the user and has no reply yet → stream the answer
     if is_pending:
