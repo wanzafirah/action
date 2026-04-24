@@ -137,7 +137,11 @@ Rules:
 - "owner" must be a PERSON's name (e.g. "Ahmad", "Sarah"), NOT an organisation name.
   If only an organisation is mentioned, use "Not stated" for owner and put the
   organisation name in "department".
-- "department" is the team or organisation responsible (e.g. "MyNext Team", "TalentCorp").
+- "department" MUST be a TalentCorp internal department name (e.g. "MPT", "GEF", "MyMahir",
+  "Group Digital", "Graduate & Emerging Talent", "MYXpats Operations", "Communications",
+  "Group Strategy Office", "School Talent Hub", "GCEO Liaison Office"). Do NOT put an
+  external company name (e.g. "1337 Ventures", "CIMB Bank") in the department field.
+  If no TalentCorp department is mentioned, use "Not stated".
 - If deadline is NOT explicitly stated in the transcript, use "None". Do NOT guess or infer
   deadlines from vague language like "soon" or "as soon as possible".
 - Only use a deadline if an actual date, month, or clear timeframe is stated near that task.
