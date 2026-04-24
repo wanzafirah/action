@@ -89,45 +89,108 @@ def _render_company_history(result: dict, meetings: list) -> None:  # noqa: ARG0
         cols = st.columns(len(chunk))
         for col, (company, history) in zip(cols, chunk):
             with col:
-                if history:
-                    h0 = history[0]
-                    company_type = h0.get("company_type") or "Unknown"
-                    sector       = h0.get("sector")       or "—"
+                _render_company_card(company, history)
 
-                    prog_lines = ""
-                    for entry in history[:8]:
-                        prog = entry.get("programme") or "—"
-                        d    = entry.get("date")      or "—"
-                        prog_lines += (
-                            f"<li>{prog}"
-                            f"<span style='color:#6e7f96;font-size:0.78em'> {d}</span>"
-                            f"</li>"
-                        )
 
-                    st.markdown(
-                        f"<div style='background:#f8f9fc;border:1px solid #e2e8f0;"
-                        f"border-radius:14px;padding:0.9rem 1rem;margin-bottom:0.6rem'>"
-                        f"<div style='font-weight:800;font-size:0.95rem;color:#0f172a;"
-                        f"margin-bottom:0.25rem'>{company}</div>"
-                        f"<div style='font-size:0.78rem;color:#6e7f96;margin-bottom:0.5rem'>"
-                        f"{company_type} &nbsp;·&nbsp; {sector}</div>"
-                        f"<ul style='margin:0;padding-left:1.1rem;font-size:0.86rem;"
-                        f"color:#0f172a;line-height:1.6'>"
-                        f"{prog_lines}</ul>"
-                        f"</div>",
-                        unsafe_allow_html=True,
-                    )
-                else:
-                    st.markdown(
-                        f"<div style='background:#f8f9fc;border:1px solid #e2e8f0;"
-                        f"border-radius:14px;padding:0.9rem 1rem;margin-bottom:0.6rem'>"
-                        f"<div style='font-weight:800;font-size:0.95rem;color:#0f172a;"
-                        f"margin-bottom:0.25rem'>{company}</div>"
-                        f"<div style='font-size:0.82rem;color:#6e7f96'>"
-                        f"None — not found in TalentCorp programme records.</div>"
-                        f"</div>",
-                        unsafe_allow_html=True,
-                    )
+def _render_company_card(company: str, history: list) -> None:
+    """Render a single TalentCorp history card for one extracted company name."""
+    # Gradient card style
+    card_style = (
+        "background:#f8f9fc;border:1px solid #e2e8f0;"
+        "border-radius:14px;padding:0.9rem 1rem;margin-bottom:0.6rem"
+    )
+
+    if not history:
+        st.markdown(
+            f"<div style='{card_style}'>"
+            f"<div style='font-weight:800;font-size:0.95rem;color:#0f172a;"
+            f"margin-bottom:0.25rem'>{company}</div>"
+            f"<div style='font-size:0.82rem;color:#94a3b8'>"
+            f"None — not found in TalentCorp records.</div>"
+            f"</div>",
+            unsafe_allow_html=True,
+        )
+        return
+
+    # How many distinct company names were found?
+    distinct = history[0].get("_distinct_count", 1)
+
+    if distinct > 50:
+        # Too generic — name matches hundreds of companies
+        st.markdown(
+            f"<div style='{card_style}'>"
+            f"<div style='font-weight:800;font-size:0.95rem;color:#0f172a;"
+            f"margin-bottom:0.25rem'>{company}</div>"
+            f"<div style='font-size:0.82rem;color:#b45309;margin-bottom:0.2rem'>"
+            f"Name is too generic — {distinct} companies found.</div>"
+            f"<div style='font-size:0.8rem;color:#6e7f96'>"
+            f"Search by exact name in the Companies tab.</div>"
+            f"</div>",
+            unsafe_allow_html=True,
+        )
+        return
+
+    # Group entries by company name (take top 3 distinct companies by date)
+    # Within each company, deduplicate programmes — same programme shown only once.
+    seen_names: dict[str, dict] = {}   # cname → {type, sector, programmes_set}
+    for entry in history:
+        cn = entry.get("company_name", "")
+        if cn not in seen_names:
+            if len(seen_names) >= 3:
+                continue
+            seen_names[cn] = {
+                "company_type": entry.get("company_type") or "",
+                "sector":       entry.get("sector")       or "",
+                "programmes":   [],
+                "prog_seen":    set(),
+            }
+        prog = (entry.get("programme") or "").strip()
+        if prog and prog not in seen_names[cn]["prog_seen"]:
+            seen_names[cn]["programmes"].append(prog)
+            seen_names[cn]["prog_seen"].add(prog)
+
+    # Build card body — one block per matching company name
+    body_html = ""
+    for cname, info in seen_names.items():
+        ctype  = info["company_type"]
+        sector = info["sector"]
+        meta   = " &nbsp;·&nbsp; ".join(x for x in [ctype, sector] if x) or "—"
+
+        progs = info["programmes"]
+        if not progs:
+            prog_lines = "<li style='color:#94a3b8'>No programme recorded</li>"
+        else:
+            prog_lines = "".join(
+                f"<li style='margin-bottom:0.1rem'>{p}</li>" for p in progs
+            )
+
+        body_html += (
+            f"<div style='margin-bottom:0.6rem'>"
+            f"<div style='font-weight:700;font-size:0.9rem;color:#0f172a'>{cname}</div>"
+            f"<div style='font-size:0.76rem;color:#6e7f96;margin-bottom:0.25rem'>{meta}</div>"
+            f"<ul style='margin:0;padding-left:1.1rem;font-size:0.85rem;"
+            f"color:#0f172a;line-height:1.5'>{prog_lines}</ul>"
+            f"</div>"
+        )
+
+    more_note = ""
+    if distinct > 3:
+        more_note = (
+            f"<div style='font-size:0.76rem;color:#6e7f96;border-top:1px solid #e2e8f0;"
+            f"margin-top:0.4rem;padding-top:0.4rem'>"
+            f"+ {distinct - 3} more companies match this name. "
+            f"Search in Companies tab for full list.</div>"
+        )
+
+    header = (
+        f"<div style='font-weight:800;font-size:0.95rem;color:#0f172a;"
+        f"margin-bottom:0.5rem'>{company}</div>"
+    )
+
+    st.markdown(
+        f"<div style='{card_style}'>{header}{body_html}{more_note}</div>",
+        unsafe_allow_html=True,
+    )
 
 
 def _clear_all_inputs() -> None:
