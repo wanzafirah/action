@@ -169,7 +169,7 @@ def normalize_result(result: dict, transcript: str, metadata: dict | None = None
 # ------------------------------------------------------------------
 def run_pipeline(transcript: str, metadata: dict | None = None) -> dict:
     """Analyse a transcript and return the normalised meeting brief."""
-    compact = compact_transcript_for_prompt((transcript or "").strip(), max_chars=1800)
+    compact = compact_transcript_for_prompt((transcript or "").strip(), max_chars=1500)
 
     metadata_lines = [
         f"{label}: {normalize_value(value, '')}"
@@ -189,8 +189,8 @@ def run_pipeline(transcript: str, metadata: dict | None = None) -> dict:
     )
 
     try:
-        # Reduced max_tokens for faster generation (target < 1 min)
-        raw = call_ollama(PIPELINE_SYSTEM, user_msg, max_tokens=1200)
+        # max_tokens=900 + num_ctx=2048 keeps inference under 1 min on typical hardware
+        raw = call_ollama(PIPELINE_SYSTEM, user_msg, max_tokens=900, num_ctx=2048)
         try:
             result = extract_json(raw)
         except Exception:
