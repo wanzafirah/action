@@ -4,7 +4,7 @@ from datetime import datetime
 import streamlit as st
 
 from core.database import save_history_entry
-from core.pipeline import chat_with_meetings
+from core.pipeline import chat_with_meetings, stream_chat_with_meetings
 from ui import calendar as calendar_widget
 from ui.components import (
     completion_ring,
@@ -23,6 +23,24 @@ from utils.helpers import (
 
 def render() -> None:
     meetings = st.session_state.get("meetings", [])
+
+    # ── Header row: title + New Meeting button ───────────────────────
+    hdr_left, hdr_right = st.columns([3, 1])
+    with hdr_left:
+        st.markdown(
+            "<div style='font-size:1.5rem;font-weight:800;color:var(--text);"
+            "line-height:1.2;margin-bottom:0.1rem'>Dashboard</div>"
+            "<div style='font-size:0.83rem;color:var(--text-soft)'>"
+            "Overview of meetings, actions and deadlines</div>",
+            unsafe_allow_html=True,
+        )
+    with hdr_right:
+        if st.button("＋  New Meeting", key="dash_new_meeting",
+                     type="primary", use_container_width=True):
+            st.session_state.current_page = "Capture"
+            st.rerun()
+
+    st.markdown("<div style='height:0.5rem'></div>", unsafe_allow_html=True)
 
     # Two-column layout
     main_col, side_col = st.columns([2.2, 1], gap="large")
@@ -293,22 +311,50 @@ def _render_chatbot(meetings: list) -> None:
 
     if submit and question.strip():
         messages.append({"role": "user", "text": question})
-        try:
-            answer = chat_with_meetings(question, meetings)
-        except Exception as exc:
-            answer = f"Sorry, I couldn't reach the model. ({exc})"
-        messages.append({"role": "assistant", "text": answer})
+        st.rerun()  # show user message immediately, then stream the reply
 
+    # If the last message is from the user and has no reply yet → stream the answer
+    if messages and messages[-1]["role"] == "user":
+        pending_q = messages[-1]["text"]
+        with container:
+            from ui.components import chat_bubble
+            for entry in messages[:-1]:
+                chat_bubble(entry["role"], entry["text"])
+            chat_bubble("user", pending_q)
+
+            # Stream assistant reply with a typing effect
+            reply_placeholder = st.empty()
+            accumulated = ""
+            try:
+                for chunk in stream_chat_with_meetings(pending_q, meetings):
+                    accumulated += chunk
+                    reply_placeholder.markdown(
+                        f"<div style='background:#f0f4ff;border-radius:14px 14px 14px 4px;"
+                        f"padding:0.65rem 0.9rem;font-size:0.9rem;color:#0f172a;"
+                        f"margin:0.3rem 0;max-width:92%'>{accumulated}▌</div>",
+                        unsafe_allow_html=True,
+                    )
+            except Exception as exc:
+                accumulated = f"Sorry, I couldn't reach the model. ({exc})"
+            # Final render without cursor
+            reply_placeholder.markdown(
+                f"<div style='background:#f0f4ff;border-radius:14px 14px 14px 4px;"
+                f"padding:0.65rem 0.9rem;font-size:0.9rem;color:#0f172a;"
+                f"margin:0.3rem 0;max-width:92%'>{accumulated}</div>",
+                unsafe_allow_html=True,
+            )
+
+        messages.append({"role": "assistant", "text": accumulated})
         session_id = st.session_state.get("dashboard_chat_session_id", uid())
         save_history_entry({
             "id": uid(),
             "user_id": st.session_state.chat_user_id,
             "thread_key": f"{st.session_state.chat_user_id}|{today_str()}|{session_id}",
             "thread_date": today_str(),
-            "thread_title": question[:60],
+            "thread_title": pending_q[:60],
             "timestamp": datetime.now().isoformat(timespec="seconds"),
-            "question": question,
-            "answer": answer,
+            "question": pending_q,
+            "answer": accumulated,
             "meeting_id": "",
             "meeting_title": "",
             "context": "general",
