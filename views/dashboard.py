@@ -320,6 +320,24 @@ def _render_chatbot(meetings: list) -> None:
         messages.append({"role": "user", "text": question})
         st.rerun()  # show user message immediately, then stream the reply
 
+    # Save chat button — only shown when there's something to save
+    if messages:
+        chat_lines = []
+        for entry in messages:
+            role_label = "You" if entry["role"] == "user" else "Assistant"
+            chat_lines.append(f"{role_label}:\n{entry['text']}\n")
+        chat_export = "\n".join(chat_lines)
+        from datetime import datetime as _dt
+        _fname = f"chat_{st.session_state.chat_user_id}_{_dt.now().strftime('%Y%m%d_%H%M')}.txt"
+        st.download_button(
+            label="Save chat",
+            data=chat_export,
+            file_name=_fname,
+            mime="text/plain",
+            key=f"chat_save__{st.session_state.chat_user_id}__{len(messages)}",
+            use_container_width=True,
+        )
+
     # If the last message is from the user and has no reply yet → stream the answer
     if messages and messages[-1]["role"] == "user":
         pending_q = messages[-1]["text"]
