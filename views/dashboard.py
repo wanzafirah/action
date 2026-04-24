@@ -300,12 +300,19 @@ def _render_chatbot(meetings: list) -> None:
             from ui.components import chat_bubble
             chat_bubble(entry["role"], entry["text"])
 
+    # Hide the submit button — Enter key still submits the form
+    st.markdown(
+        "<style>div[data-testid='stForm'] button[kind='primaryFormSubmit']"
+        "{display:none !important}</style>",
+        unsafe_allow_html=True,
+    )
+
     # Input form
     with st.form(f"chat_form__{st.session_state.chat_user_id}", clear_on_submit=True):
         question = st.text_input(
             "Your question",
             key=f"chat_q__{st.session_state.chat_user_id}",
-            placeholder="Ask about your meetings…",
+            placeholder="Ask about your meetings… (press Enter to send)",
             label_visibility="collapsed",
         )
         submit = st.form_submit_button("Ask →")
