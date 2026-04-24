@@ -72,25 +72,52 @@ def render() -> None:
 
     # ── Add Company form ─────────────────────────────────────────────
     with st.expander("Add new company record", expanded=False):
+        st.caption(
+            "Type the company name below. If the company already exists in the records "
+            "a dropdown will appear — select it to avoid duplicate entries."
+        )
+
+        # Company name with live autocomplete
+        new_name_query = st.text_input(
+            "Company Name *",
+            key="co_new_name_query",
+            placeholder="e.g. Tenaga Nasional Berhad",
+        )
+        final_name = new_name_query.strip()
+
+        if len(final_name) >= 2:
+            from utils.company_db import search_company_names as _scn
+            _matches = _scn(final_name, limit=20)
+            if _matches:
+                _sel = st.selectbox(
+                    "Existing companies matching your input (select to reuse exact name)",
+                    ["— Enter new name above —"] + _matches,
+                    key="co_new_name_select",
+                )
+                if _sel != "— Enter new name above —":
+                    final_name = _sel
+                    st.info(f"Using existing name: **{final_name}**")
+            else:
+                st.caption("No existing match — this will be added as a new company.")
+
         fc1, fc2, fc3 = st.columns(3)
         with fc1:
-            new_name = st.text_input("Company Name *", key="co_new_name", placeholder="e.g. Acme Sdn Bhd")
             new_type = st.selectbox("Company Type", [""] + _COMPANY_TYPES, key="co_new_type")
+            new_sector = st.text_input("Sector", key="co_new_sector", placeholder="e.g. Financial Services")
         with fc2:
             new_prog = st.selectbox("Programme", [""] + _PROGRAMMES, key="co_new_prog")
-            new_sector = st.text_input("Sector", key="co_new_sector", placeholder="e.g. Financial Services")
         with fc3:
             new_date = st.date_input("Date", value=_date.today(), key="co_new_date")
-            st.markdown("<div style='height:1.6rem'></div>", unsafe_allow_html=True)
+            st.markdown("<div style='height:0.5rem'></div>", unsafe_allow_html=True)
             add_btn = st.button("Add Record", key="co_add_btn", type="primary", use_container_width=True)
 
         if add_btn:
-            if new_name.strip():
+            if final_name:
                 import csv
                 with open(_CSV_PATH, "a", newline="", encoding="latin1") as f:
                     writer = csv.writer(f)
                     writer.writerow([
-                        new_name.strip(),
+                        final_name,
                         new_type,
                         new_prog,
                         new_date.strftime("%m/%d/%Y"),
@@ -99,7 +126,7 @@ def render() -> None:
                 # Invalidate the LRU cache so the new row appears immediately
                 from utils.company_db import _load_df
                 _load_df.cache_clear()
-                st.success(f"✓ Added **{new_name.strip()}** to records.")
+                st.success(f"✓ Added **{final_name}** to records.")
                 st.rerun()
             else:
                 st.warning("Company Name is required.")
