@@ -193,10 +193,38 @@ def _render_company_card(company: str, history: list) -> None:
             f"Search in Companies tab for full list.</div>"
         )
 
+    # Header: if only 1 distinct company found, use the database name directly
+    # (avoids showing two almost-identical names e.g. "1337 Ventures Sdn Bhd" +
+    # "1337 VENTURES SDN BHD").  For multiple matches, use the extracted query name
+    # as the header so the user knows what was detected.
+    if len(seen_names) == 1:
+        single_key = next(iter(seen_names))
+        header_name = canonical_display.get(single_key, company)
+    else:
+        header_name = company
+
     header = (
         f"<div style='font-weight:800;font-size:0.95rem;color:#0f172a;"
-        f"margin-bottom:0.5rem'>{company}</div>"
+        f"margin-bottom:0.5rem'>{header_name}</div>"
     )
+
+    # When there is exactly 1 matched company, strip its name from the body
+    # (it is already in the header) — keep only type, sector, programmes.
+    if len(seen_names) == 1:
+        single_key = next(iter(seen_names))
+        info = seen_names[single_key]
+        ctype  = info["company_type"]
+        sector = info["sector"]
+        meta   = " &nbsp;·&nbsp; ".join(x for x in [ctype, sector] if x) or "—"
+        progs  = info["programmes"]
+        prog_lines = "".join(
+            f"<li style='margin-bottom:0.1rem'>{p}</li>" for p in progs
+        ) if progs else "<li style='color:#94a3b8'>No programme recorded</li>"
+        body_html = (
+            f"<div style='font-size:0.76rem;color:#6e7f96;margin-bottom:0.35rem'>{meta}</div>"
+            f"<ul style='margin:0;padding-left:1.1rem;font-size:0.85rem;"
+            f"color:#0f172a;line-height:1.5'>{prog_lines}</ul>"
+        )
 
     st.markdown(
         f"<div style='{card_style}'>{header}{body_html}{more_note}</div>",
