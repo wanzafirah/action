@@ -302,8 +302,7 @@ def _render_chatbot(meetings: list) -> None:
 
     # Hide the submit button — Enter key still submits the form
     st.markdown(
-        "<style>div[data-testid='stForm'] button[kind='primaryFormSubmit']"
-        "{display:none !important}</style>",
+        "<style>div[data-testid='stFormSubmitButton']{display:none !important}</style>",
         unsafe_allow_html=True,
     )
 
@@ -312,7 +311,7 @@ def _render_chatbot(meetings: list) -> None:
         question = st.text_input(
             "Your question",
             key=f"chat_q__{st.session_state.chat_user_id}",
-            placeholder="Ask about your meetings… (press Enter to send)",
+            placeholder="Ask about your meetings…",
             label_visibility="collapsed",
         )
         submit = st.form_submit_button("Ask →")
