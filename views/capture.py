@@ -130,28 +130,39 @@ def _render_company_card(company: str, history: list) -> None:
         )
         return
 
-    # Group entries by company name (take top 3 distinct companies by date)
-    # Within each company, deduplicate programmes — same programme shown only once.
-    seen_names: dict[str, dict] = {}   # cname → {type, sector, programmes_set}
+    # Group entries by company name — case-insensitive so "1337 VENTURES SDN BHD"
+    # and "1337 Ventures Sdn Bhd" (NLP form) collapse into a single card.
+    # Within each group, deduplicate programmes — same programme shown only once.
+    seen_names: dict[str, dict] = {}   # canonical_lower → display info
+    canonical_display: dict[str, str] = {}  # canonical_lower → prettiest display name
+
     for entry in history:
-        cn = entry.get("company_name", "")
-        if cn not in seen_names:
+        cn_raw = entry.get("company_name", "")
+        cn_key = cn_raw.strip().lower()
+        if cn_key not in seen_names:
             if len(seen_names) >= 3:
                 continue
-            seen_names[cn] = {
+            seen_names[cn_key] = {
                 "company_type": entry.get("company_type") or "",
                 "sector":       entry.get("sector")       or "",
                 "programmes":   [],
                 "prog_seen":    set(),
             }
+            # Prefer title-cased / mixed-case name over all-caps
+            canonical_display[cn_key] = cn_raw
+        elif cn_raw != cn_raw.upper() and canonical_display[cn_key] == canonical_display[cn_key].upper():
+            # Replace an ALL-CAPS stored name with a nicer mixed-case version
+            canonical_display[cn_key] = cn_raw
+
         prog = (entry.get("programme") or "").strip()
-        if prog and prog not in seen_names[cn]["prog_seen"]:
-            seen_names[cn]["programmes"].append(prog)
-            seen_names[cn]["prog_seen"].add(prog)
+        if prog and prog not in seen_names[cn_key]["prog_seen"]:
+            seen_names[cn_key]["programmes"].append(prog)
+            seen_names[cn_key]["prog_seen"].add(prog)
 
     # Build card body — one block per matching company name
     body_html = ""
-    for cname, info in seen_names.items():
+    for cn_key, info in seen_names.items():
+        cname  = canonical_display.get(cn_key, cn_key)
         ctype  = info["company_type"]
         sector = info["sector"]
         meta   = " &nbsp;·&nbsp; ".join(x for x in [ctype, sector] if x) or "—"
