@@ -5,8 +5,10 @@ Every external call lives here so the rest of the app never touches `requests`,
 """
 from __future__ import annotations
 
+import json
 import os
 import tempfile
+from typing import Generator
 
 import pandas as pd
 import requests
@@ -76,6 +78,47 @@ def call_ollama(system: str, user_msg: str, max_tokens: int = 1800,
             f"OLLAMA_URL is returning HTML instead of JSON. Update it to end with /api/generate. Current: {url}"
         )
     return response.json().get("response", "")
+
+
+def stream_ollama(system: str, user_msg: str, max_tokens: int = 300,
+                  num_ctx: int = 2048, temperature: float = 0.1) -> Generator[str, None, None]:
+    """Stream tokens from Ollama one chunk at a time.
+
+    Yields each text fragment as it arrives so the UI can display a
+    typing effect without waiting for the full response.
+    """
+    url = get_ollama_url()
+    headers = {}
+    if "ngrok" in url:
+        headers["ngrok-skip-browser-warning"] = "true"
+
+    payload = {
+        "model": OLLAMA_MODEL,
+        "prompt": user_msg,
+        "system": system,
+        "stream": True,
+        "options": {
+            "num_predict": max_tokens,
+            "num_ctx": num_ctx,
+            "temperature": temperature,
+            "top_p": 0.9,
+            "repeat_penalty": 1.1,
+        },
+    }
+
+    try:
+        with requests.post(url, json=payload, headers=headers, stream=True, timeout=300) as resp:
+            resp.raise_for_status()
+            for line in resp.iter_lines():
+                if line:
+                    try:
+                        chunk = json.loads(line)
+                        if not chunk.get("done"):
+                            yield chunk.get("response", "")
+                    except Exception:
+                        continue
+    except requests.RequestException as exc:
+        yield f"\n\n[Error reaching Ollama: {exc}]"
 
 
 # ==================================================================
