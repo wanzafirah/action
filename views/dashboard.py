@@ -25,6 +25,7 @@ def render() -> None:
     meetings = st.session_state.get("meetings", [])
 
     # ── Header row: title + New Meeting button ───────────────────────
+    st.markdown("<div style='height:1rem'></div>", unsafe_allow_html=True)
     hdr_left, hdr_right = st.columns([3, 1])
     with hdr_left:
         st.markdown(
