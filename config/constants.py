@@ -39,57 +39,20 @@ ACTIVITY_TYPE_OPTIONS = ["None", "Virtual", "Physical", "Both"]
 ORGANIZATION_TYPE_OPTIONS = ["Institution", "Company"]
 
 DEFAULT_DEPARTMENTS = [
-    # Strategic Support Units
-    "Communications",
-    "Group Business Intelligence",
-    "Group CEO Liaison Office",
-    "GCEO Liaison Office",
-    "Group Client Relationship Management",
-    "Group Communications & Public Relations",
-    "Group Digital",
-    "Group Finance",
-    "Group Government Engagement & Facilitation",
-    "Group Human Resources Admin & Procurement",
-    "Group Research, Development and Policy",
-    "Group Research & Policy",
-    "Group Strategy Office",
-    "Business Intelligence",
-    "Digital & Technology Solutions",
-    "IT Operations & Security",
-    "Strategic Communications",
-    "Brand Marketing",
-    "Digital Marketing",
-    "Events",
-    "Production",
-    # Business Development Units
-    "GEF",
-    "Graduate & Emerging Talent",
-    "Graduates Emerging Talent",
-    "Campus Engagement",
-    "Centre of Excellence",
-    "Internship Facilitation",
-    "MPT",
     "MyHeart Facilitation",
-    "MyHeart Network",
-    "MyHeart Operations",
+    "MPT",
+    "Graduates Emerging Talent",
+    "School Talent Hub",
+    "GCEO Liaison Office",
+    "Communications",
+    "Group Strategy Office",
+    "Group Business Intelligence",
+    "GEF",
+    "MYXpats Operations",
+    "Group Research, Development and Policy",
     "MyMahir",
     "MyMahir - Workforce Solution",
-    "MyMahir Sector Development",
-    "MyMahir Workforce Solutions",
-    "MYXpats Operations",
-    "MyXpats Operations",
-    "Residence Pass-Talent",
-    "School Talent",
-    "School Talent Hub",
-    "Veteran MyWira",
-    "Wanita MyWira",
-    "Women DEI & Work-Life Practices",
-    "Work-Life Practices",
-    # Regional Offices
-    "Region - Northern",
-    "Region - Southern",
-    "Region - East Coast",
-    "Region - East Malaysia",
+    "Graduate & Emerging Talent",
 ]
 
 # Lowercase set used to filter action items to TalentCorp-only departments
@@ -137,10 +100,12 @@ Rules:
 - "owner" must be a PERSON's name (e.g. "Ahmad", "Sarah"), NOT an organisation name.
   If only an organisation is mentioned, use "Not stated" for owner and put the
   organisation name in "department".
-- "department" MUST be a TalentCorp internal department name (e.g. "MPT", "GEF", "MyMahir",
-  "Group Digital", "Graduate & Emerging Talent", "MYXpats Operations", "Communications",
-  "Group Strategy Office", "School Talent Hub", "GCEO Liaison Office"). Do NOT put an
-  external company name (e.g. "1337 Ventures", "CIMB Bank") in the department field.
+- "department" MUST be a TalentCorp internal department name. Valid departments are:
+  MyHeart Facilitation, MPT, Graduates Emerging Talent, School Talent Hub,
+  GCEO Liaison Office, Communications, Group Strategy Office, Group Business Intelligence,
+  GEF, MYXpats Operations, Group Research Development and Policy, MyMahir,
+  MyMahir - Workforce Solution, Graduate & Emerging Talent.
+  Do NOT put an external company name (e.g. "1337 Ventures", "CIMB Bank") in department.
   If no TalentCorp department is mentioned, use "Not stated".
 - If deadline is NOT explicitly stated in the transcript, use "None". Do NOT guess or infer
   deadlines from vague language like "soon" or "as soon as possible".
