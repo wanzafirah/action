@@ -292,11 +292,16 @@ def _render_chatbot(meetings: list) -> None:
     messages = st.session_state.dashboard_chat_messages
 
     # Message thread
+    # Only render settled messages here; pending user message is rendered in the
+    # streaming block below to avoid showing it twice.
+    is_pending = messages and messages[-1]["role"] == "user"
+    settled = messages[:-1] if is_pending else messages
+
     container = st.container(height=300)
     with container:
         if not messages:
             st.caption("Try: 'What tasks are pending this week?'")
-        for entry in messages:
+        for entry in settled:
             from ui.components import chat_bubble
             chat_bubble(entry["role"], entry["text"])
 
@@ -320,8 +325,9 @@ def _render_chatbot(meetings: list) -> None:
         messages.append({"role": "user", "text": question})
         st.rerun()  # show user message immediately, then stream the reply
 
-    # Save chat button — only shown when there's something to save
-    if messages:
+    # Save chat — only visible once there are completed exchanges
+    completed = [m for m in messages if m["role"] == "assistant"]
+    if completed:
         chat_lines = []
         for entry in messages:
             role_label = "You" if entry["role"] == "user" else "Assistant"
@@ -334,16 +340,16 @@ def _render_chatbot(meetings: list) -> None:
             data=chat_export,
             file_name=_fname,
             mime="text/plain",
-            key=f"chat_save__{st.session_state.chat_user_id}__{len(messages)}",
+            key=f"chat_save__{st.session_state.chat_user_id}",
             use_container_width=True,
         )
 
     # If the last message is from the user and has no reply yet → stream the answer
-    if messages and messages[-1]["role"] == "user":
+    if is_pending:
         pending_q = messages[-1]["text"]
         with container:
             from ui.components import chat_bubble
-            for entry in messages[:-1]:
+            for entry in settled:
                 chat_bubble(entry["role"], entry["text"])
             chat_bubble("user", pending_q)
 
