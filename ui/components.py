@@ -10,7 +10,7 @@ from datetime import date, datetime
 
 import streamlit as st
 
-from config.constants import STATUS_CFG, STATUSES
+from config.constants import DEFAULT_DEPARTMENTS, STATUS_CFG, STATUSES
 from utils.tc_staff import get_tc_names
 from utils.formatters import render_chat_bubble_html
 from utils.helpers import (
@@ -239,12 +239,24 @@ def action_card(
         _cur_dept = action.get("department") or action.get("company") or ""
         if _cur_dept in ("Not stated", "None", "TalentCorp", "Talent Corp", "TC"):
             _cur_dept = ""
-        new_dept = st.text_input(
+        # Build options: blank + all TalentCorp departments + manual entry fallback
+        _dept_opts = [""] + DEFAULT_DEPARTMENTS + ["Other (type manually)"]
+        _dept_idx = _dept_opts.index(_cur_dept) if _cur_dept in _dept_opts else 0
+        _dept_sel = st.selectbox(
             "Department",
-            value=_cur_dept,
-            key=f"dept_{action_id}",
-            placeholder="e.g. Group Digital",
+            options=_dept_opts,
+            index=_dept_idx,
+            key=f"dept_sel_{action_id}",
         )
+        if _dept_sel == "Other (type manually)":
+            new_dept = st.text_input(
+                "Department (manual)",
+                value=_cur_dept if _cur_dept not in _dept_opts else "",
+                key=f"dept_{action_id}",
+                placeholder="Type department name…",
+            )
+        else:
+            new_dept = _dept_sel
 
     with col_edit4:
         deadline_value = normalize_value(action.get("deadline"), "")
