@@ -73,20 +73,20 @@ def search_company_names(query: str, limit: int = 25) -> list[str]:
     return df[mask]['CompanyName'].drop_duplicates().sort_values().head(limit).tolist()
 
 
-def get_company_programmes(company_name: str, max_matches: int = 30) -> list[dict]:
+def get_company_programmes(company_name: str) -> list[dict]:
     """Return TalentCorp programme history for *company_name* using fuzzy matching.
 
     Strips legal suffixes and generic words (including "company") from both the
     query and stored names, then requires every significant token (length > 2)
     in the query to appear in the stored normalised name.
 
-    Returns [] if the query is too generic (matches more than *max_matches*
-    distinct companies — it means the token is a common word like "ventures"
-    and cannot identify a specific company).
-
     Returns list of dicts:
-        {company_name, company_type, programme, date, sector}
+        {company_name, company_type, programme, date, sector, _distinct_count}
     sorted by date descending, deduplicated.
+
+    The special key ``_distinct_count`` (only on the first item) tells callers
+    how many distinct company names matched, so the UI can show a
+    "too generic / multiple matches" notice when the count is high.
     """
     if not company_name or company_name.strip() in ('', 'Not stated', 'None'):
         return []
@@ -106,9 +106,7 @@ def get_company_programmes(company_name: str, max_matches: int = 30) -> list[dic
     if results.empty:
         return []
 
-    # If too many distinct companies match, the query is too generic to be useful
-    if results['CompanyName'].nunique() > max_matches:
-        return []
+    distinct_count = int(results['CompanyName'].nunique())
 
     seen: set = set()
     out: list[dict] = []
@@ -136,4 +134,7 @@ def get_company_programmes(company_name: str, max_matches: int = 30) -> list[dic
         return _dt.min
 
     out.sort(key=_date_key, reverse=True)
+
+    if out:
+        out[0]['_distinct_count'] = distinct_count
     return out
