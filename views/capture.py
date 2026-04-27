@@ -115,8 +115,8 @@ def _render_company_card(company: str, history: list) -> None:
     # How many distinct company names were found?
     distinct = history[0].get("_distinct_count", 1)
 
-    if distinct > 50:
-        # Too generic — name matches hundreds of companies
+    if distinct > 8:
+        # Too many matches — name is ambiguous, don't show wrong companies
         st.markdown(
             f"<div style='{card_style}'>"
             f"<div style='font-weight:800;font-size:0.95rem;color:#0f172a;"
@@ -458,7 +458,7 @@ def render() -> None:
                     st.session_state.cap_ext_stakeholders.pop(i)
                     st.rerun()
 
-    # ----- Audio / transcript -----
+    # audio/transcript
     st.markdown("### Transcript")
     mode = st.radio(
         "How will you provide the meeting content?",
@@ -579,17 +579,17 @@ def render() -> None:
             except Exception as exc:
                 st.error(f"Pipeline failed: {exc}")
 
-    # ----- Show pending result -----
+    # pending result
     pending = st.session_state.get("pending_result")
     if pending:
         st.markdown("---")
         result = pending["result"]
         summary_panel(result)
 
-        # ── Company history table ─────────────────────────────────────
+        #company history table
         _render_company_history(result, meetings)
 
-        # ── Copy Email button ─────────────────────────────────────────
+        # email copy button
         if st.button("Copy Meeting Summary Email", key="cap_email_btn"):
             st.session_state.cap_email_draft = _build_email_text(pending, result)
 
@@ -610,8 +610,7 @@ def render() -> None:
             a.setdefault("id", f"act-{uid()}-{idx}")
             action_card(a, editable=True, persist_callback=lambda: None)
 
-        # ── Download PDF ──────────────────────────────────────────────
-        # Cache PDF bytes in session_state so the download button always has data
+        #download PDF
         if "cap_pdf_bytes" not in st.session_state:
             try:
                 from utils.export import generate_meeting_pdf
@@ -638,7 +637,6 @@ def render() -> None:
             if st.button("Save meeting", type="primary", key="cap_save"):
                 meeting = _build_meeting_record(pending)
                 st.session_state.meetings.append(meeting)
-                # Sync external stakeholders to central directory
                 try:
                     upsert_stakeholders_from_meeting(
                         meeting["id"],
