@@ -98,17 +98,37 @@ def get_company_programmes(company_name: str) -> list[dict]:
 
     df = _load_df()
     q_norm = _normalise(company_name)
-    # Keep alphabetic tokens longer than 2 chars, plus any numeric tokens (e.g. "1" in "1 Malaysia")
+    # Keep alphabetic tokens longer than 2 chars, plus numeric tokens like "1"
     tokens = [t for t in q_norm.split() if len(t) > 2 or t.isdigit()]
     if not tokens:
         return []
 
-    # All significant tokens must appear in the normalised company name
-    mask = df['_norm'].str.contains(re.escape(tokens[0]), na=False, regex=True)
-    for t in tokens[1:]:
-        mask = mask & df['_norm'].str.contains(re.escape(t), na=False, regex=True)
+    q_set = set(tokens)
 
-    results = df[mask].copy()
+    # Step 1 — candidate filter: all query tokens must appear as whole words
+    mask = df['_norm'].str.contains(r'\b' + re.escape(tokens[0]) + r'\b', na=False)
+    for t in tokens[1:]:
+        mask = mask & df['_norm'].str.contains(r'\b' + re.escape(t) + r'\b', na=False)
+
+    candidates = df[mask].copy()
+    if candidates.empty:
+        return []
+
+    # Step 2 — Jaccard similarity: reject DB entries where the token sets are
+    # too different in size (e.g. "malaysia development" should NOT match
+    # "Sustainable Energy Development Authority SEDA Malaysia" because those
+    # 6 tokens are far from the 2-token query).
+    # Threshold scales with query length so single-word queries stay permissive.
+    def _jaccard(norm_str: str) -> float:
+        db_toks = set(t for t in norm_str.split() if len(t) > 2 or t.isdigit())
+        if not db_toks:
+            return 0.0
+        return len(q_set & db_toks) / len(q_set | db_toks)
+
+    threshold = 0.45 if len(q_set) >= 2 else 0.25
+    candidates['_sim'] = candidates['_norm'].apply(_jaccard)
+    results = candidates[candidates['_sim'] >= threshold].copy()
+
     if results.empty:
         return []
 
