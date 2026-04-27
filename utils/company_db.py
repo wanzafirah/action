@@ -98,7 +98,8 @@ def get_company_programmes(company_name: str) -> list[dict]:
 
     df = _load_df()
     q_norm = _normalise(company_name)
-    tokens = [t for t in q_norm.split() if len(t) > 2]
+    # Keep alphabetic tokens longer than 2 chars, plus any numeric tokens (e.g. "1" in "1 Malaysia")
+    tokens = [t for t in q_norm.split() if len(t) > 2 or t.isdigit()]
     if not tokens:
         return []
 
