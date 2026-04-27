@@ -23,7 +23,7 @@ _CSV_PATH = Path(__file__).parent.parent / "datacompany 1.csv"
 # "Company Ventures Sdn Bhd" reduces to just "ventures" and still
 # matches "1337 VENTURES SDN BHD" in the database.
 _STRIP_PAT = re.compile(
-    r'\b(sdn\.?\s*bhd\.?|sdn|bhd|berhad|malaysia|formerly|known\s+as|'
+    r'\b(sdn\.?\s*bhd\.?|sdn|bhd|berhad|formerly|known\s+as|'
     r'previously|ltd\.?|limited|inc\.?|corp\.?|llc|plc|holdings|'
     r'international|industries|enterprise|services|solutions|group|'
     r'company|companies|the|of|and|m\.?\s*bhd\.?)\b',
@@ -53,6 +53,11 @@ def _load_df() -> pd.DataFrame:
     df = df[df['CompanyName'].str.len() > 1].copy()
     df['_norm'] = df['CompanyName'].apply(_normalise)
     return df
+
+
+def clear_cache() -> None:
+    """Force the CSV to reload on next access (call after adding new records)."""
+    _load_df.cache_clear()
 
 
 def get_all_data() -> pd.DataFrame:
@@ -135,6 +140,8 @@ def get_company_programmes(company_name: str) -> list[dict]:
 
     out.sort(key=_date_key, reverse=True)
 
+    # Attach the distinct-company count to the first record so callers can
+    # decide how to present results (e.g. show a "too generic" warning).
     if out:
         out[0]['_distinct_count'] = distinct_count
     return out
