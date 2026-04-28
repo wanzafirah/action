@@ -245,7 +245,7 @@ def _clear_all_inputs() -> None:
         "cap_depts", "cap_updated_by", "cap_tc_members",
         "cap_mode", "cap_translate", "cap_audio_upload", "cap_audio_record",
         "cap_docs", "cap_ext_excel",
-        "cap_transcript", "cap_transcript_original",
+        "cap_transcript", "cap_transcript_original", "cap_transcript_ver",
         "cap_ext_stakeholders",
         "cap_s_name", "cap_s_pos", "cap_s_org_query", "cap_s_org_select",
         "cap_s_phone", "cap_s_email",
@@ -499,10 +499,11 @@ def render() -> None:
                 else:
                     st.session_state.cap_transcript = text
                     st.session_state.cap_transcript_original = text   # save raw Whisper output
-                    # Bump the textarea key so Streamlit rebuilds the widget and
-                    # picks up the new value=... (otherwise the keyed widget keeps
-                    # showing its own stored empty string).
-                    st.session_state["cap_clear_n"] = st.session_state.get("cap_clear_n", 0) + 1
+                    # Bump cap_transcript_ver so the text_area gets a brand-new key
+                    # and Streamlit honours value= with the fresh transcript content.
+                    st.session_state["cap_transcript_ver"] = (
+                        st.session_state.get("cap_transcript_ver", 0) + 1
+                    )
                     st.success("Transcript ready — edit below if needed.")
                     st.rerun()
             except Exception as exc:
@@ -524,16 +525,24 @@ def render() -> None:
                         current, extract_text_from_document(d)
                     )
                 st.session_state.cap_transcript = current
-                # Force the textarea to re-read its value= parameter.
-                st.session_state["cap_clear_n"] = st.session_state.get("cap_clear_n", 0) + 1
+                # Bump so the text_area rebuilds with the updated value=.
+                st.session_state["cap_transcript_ver"] = (
+                    st.session_state.get("cap_transcript_ver", 0) + 1
+                )
                 st.success(f"Added content from {len(docs)} document(s).")
                 st.rerun()
             except Exception as exc:
                 st.error(f"Could not read document: {exc}")
 
-    # The key includes a counter so "Clear all inputs" forces a fresh empty widget
-    # without needing to write to the widget key directly (which Streamlit forbids).
-    _ta_key = f"cap_transcript_editor_{st.session_state.get('cap_clear_n', 0)}"
+    # The key includes two counters:
+    #   cap_clear_n      – bumped by "Clear all inputs" to reset the widget to empty
+    #   cap_transcript_ver – bumped every time a new transcript is loaded (audio or doc)
+    # Together they force Streamlit to create a brand-new widget so `value=` is respected.
+    _ta_key = (
+        f"cap_transcript_editor"
+        f"_{st.session_state.get('cap_clear_n', 0)}"
+        f"_{st.session_state.get('cap_transcript_ver', 0)}"
+    )
     transcript = st.text_area(
         "Transcript (editable)",
         value=st.session_state.get("cap_transcript", ""),
