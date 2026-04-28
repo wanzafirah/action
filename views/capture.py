@@ -491,10 +491,20 @@ def render() -> None:
         with st.spinner("Transcribing… first run may download the Whisper model."):
             try:
                 text = transcribe_audio_file(audio_source, translate)
-                st.session_state.cap_transcript = text
-                st.session_state.cap_transcript_original = text   # save raw Whisper output
-                st.success("Transcript ready — edit below if needed.")
-                st.rerun()
+                if not text.strip():
+                    st.warning(
+                        "Whisper returned no speech. The file may be silent, too short, "
+                        "or the VAD filter dropped everything. Try a different file."
+                    )
+                else:
+                    st.session_state.cap_transcript = text
+                    st.session_state.cap_transcript_original = text   # save raw Whisper output
+                    # Bump the textarea key so Streamlit rebuilds the widget and
+                    # picks up the new value=... (otherwise the keyed widget keeps
+                    # showing its own stored empty string).
+                    st.session_state["cap_clear_n"] = st.session_state.get("cap_clear_n", 0) + 1
+                    st.success("Transcript ready — edit below if needed.")
+                    st.rerun()
             except Exception as exc:
                 st.error(f"Transcription failed: {exc}")
 
@@ -514,6 +524,8 @@ def render() -> None:
                         current, extract_text_from_document(d)
                     )
                 st.session_state.cap_transcript = current
+                # Force the textarea to re-read its value= parameter.
+                st.session_state["cap_clear_n"] = st.session_state.get("cap_clear_n", 0) + 1
                 st.success(f"Added content from {len(docs)} document(s).")
                 st.rerun()
             except Exception as exc:
