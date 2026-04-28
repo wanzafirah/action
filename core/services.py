@@ -121,16 +121,13 @@ def stream_ollama(system: str, user_msg: str, max_tokens: int = 300,
         yield f"\n\n[Error reaching Ollama: {exc}]"
 
 
-# ==================================================================
-# FASTER-WHISPER (ASR + auto language detection)
-# ==================================================================
+#audio transcription (whisper)
 @st.cache_resource(show_spinner=False)
 def get_whisper_model():
     if WhisperModel is None:
         raise RuntimeError(
             "faster-whisper is not installed. Add `faster-whisper` to requirements.txt."
         )
-    # int8 quantisation keeps CPU memory low enough to run on Streamlit Cloud.
     return WhisperModel(WHISPER_MODEL, device="cpu", compute_type="int8")
 
 
@@ -153,10 +150,6 @@ def transcribe_audio_file(uploaded_file, translate_to_english: bool = True) -> s
 
     try:
         task = "translate" if translate_to_english else "transcribe"
-        # beam_size=5 gives better accuracy for mixed-language (Malay-English) audio.
-        # language=None lets Whisper auto-detect the language per segment.
-        # initial_prompt seeds Whisper's vocabulary with TalentCorp brand names and
-        # common Manglish/Malay terms so they are transcribed correctly.
         initial_prompt = (
             "This is a TalentCorp Malaysia internal meeting in Manglish — a mix of "
             "English and Bahasa Malaysia. "
@@ -184,9 +177,7 @@ def transcribe_audio_file(uploaded_file, translate_to_english: bool = True) -> s
             os.remove(tmp.name)
 
 
-# ==================================================================
-# DOCUMENT EXTRACTION (PDF / DOCX / XLSX / CSV)
-# ==================================================================
+#extract document (pdf/excel/docx/csv)
 def _dataframe_to_text(df: pd.DataFrame, row_limit: int = 40) -> str:
     df = df.fillna("")
     if df.empty:
