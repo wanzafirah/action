@@ -178,14 +178,6 @@ def generate_meeting_pdf(meeting: dict) -> bytes:
     story.append(Paragraph(fu_text, meta_style))
     story.append(HRFlowable(width="100%", thickness=1, color=border_color, spaceAfter=8))
 
-    # ── Key Decisions ──────────────────────────────────────────────
-    decisions = meeting.get("keyDecisions") or []
-    if decisions:
-        story.append(Paragraph("Key Decisions", h2_style))
-        for d in decisions:
-            story.append(Paragraph(f"• {normalize_value(d, '')}", body_style))
-        story.append(Spacer(1, 6))
-
     # ── Action Items ───────────────────────────────────────────────
     actions = meeting.get("actions") or []
     if actions:
