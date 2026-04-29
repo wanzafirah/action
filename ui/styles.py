@@ -342,6 +342,15 @@ div[data-baseweb="popover"] li:hover {
     color: var(--brand) !important;
 }
 
+/* Disabled text areas — keep text readable (black) */
+.stTextArea textarea:disabled,
+.stTextArea textarea[disabled],
+.stTextArea div[aria-disabled="true"] textarea {
+    color: #0f172a !important;
+    -webkit-text-fill-color: #0f172a !important;
+    opacity: 1 !important;
+}
+
 /* Focus ring */
 .stTextInput input:focus, .stTextArea textarea:focus,
 .stNumberInput input:focus, .stDateInput input:focus {
