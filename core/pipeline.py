@@ -103,6 +103,12 @@ def normalize_result(result: dict, transcript: str, metadata: dict | None = None
 
     merged = {**safe, **result}
 
+    # meeting_type / category / outcome come from form metadata, not LLM
+    metadata = metadata or {}
+    merged["meeting_type"] = normalize_value(metadata.get("Activity Type"), safe["meeting_type"])
+    merged["category"]     = normalize_value(metadata.get("Category"),      safe["category"])
+    merged["outcome"]      = normalize_value(result.get("outcome"),          "Not provided")
+
     # merge key by key so missing subkeys get their defaults.
     llm_nlp = result.get("nlp_pipeline") or {}
     merged["nlp_pipeline"] = {**safe["nlp_pipeline"], **llm_nlp}
@@ -169,27 +175,24 @@ def normalize_result(result: dict, transcript: str, metadata: dict | None = None
 #input (meeting recap)
 def run_pipeline(transcript: str, metadata: dict | None = None) -> dict:
     """Analyse a transcript and return the normalised meeting brief."""
-    compact = compact_transcript_for_prompt((transcript or "").strip(), max_chars=1500)
+    compact = compact_transcript_for_prompt((transcript or "").strip(), max_chars=1000)
 
+    # Only pass the most useful metadata fields to keep the prompt short
+    _KEEP = {"Title", "Category", "Meeting Date", "Departments", "Report By"}
     metadata_lines = [
         f"{label}: {normalize_value(value, '')}"
         for label, value in (metadata or {}).items()
-        if normalize_value(value, "")
+        if label in _KEEP and normalize_value(value, "")
     ]
     metadata_block = "\n".join(metadata_lines) or "None provided"
 
     user_msg = (
-        "Return detailed JSON with summary, objective, outcome, follow-up, action items, "
-        "deadlines, and practical suggestions.\n"
-        "Use only tasks and deadlines that are explicitly stated in the meeting recap.\n"
-        "Make the summary strong enough that someone who missed the meeting understands "
-        "what happened, what was agreed, what is pending, and what should happen next.\n\n"
-        f"Activity metadata:\n{metadata_block}\n\n"
-        f"Meeting content:\n{compact}"
+        f"Metadata:\n{metadata_block}\n\n"
+        f"Transcript:\n{compact}"
     )
 
     try:
-        raw = call_ollama(PIPELINE_SYSTEM, user_msg, max_tokens=600, num_ctx=2048)
+        raw = call_ollama(PIPELINE_SYSTEM, user_msg, max_tokens=450, num_ctx=1500)
         try:
             result = extract_json(raw)
         except Exception:
