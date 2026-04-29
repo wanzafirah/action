@@ -48,7 +48,10 @@ def render() -> None:
     df = df[df["CompanyName"].str.strip() != ""].copy()
 
     # ── KPI cards ───────────────────────────────────────────────────
-    total_companies = int(df["CompanyName"].nunique())
+    # Count unique companies after normalisation (lowercase, strip legal suffixes)
+    # so "Maybank", "MAYBANK", "Maybank Bhd" all count as 1 company
+    from utils.company_db import _normalise
+    total_companies = int(df["CompanyName"].apply(_normalise).nunique())
     total_records   = len(df)
     programmes      = sorted(p for p in df["Programme"].unique() if p)
 
