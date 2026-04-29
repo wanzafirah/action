@@ -152,9 +152,9 @@ def render(meetings: list) -> None:
     weeks = cal.monthdayscalendar(year, month)
 
     st.markdown("<div class='cal-wrap'>", unsafe_allow_html=True)
-    for week in weeks:
+    for week_idx, week in enumerate(weeks):
         wcols = st.columns(7)
-        for col, day_num in zip(wcols, week):
+        for col_idx, (col, day_num) in enumerate(zip(wcols, week)):
             if day_num == 0:
                 css_class = "cal-empty"
                 label = " "
@@ -184,7 +184,7 @@ def render(meetings: list) -> None:
                 st.markdown(f"<div class='{css_class}'>", unsafe_allow_html=True)
                 clicked = st.button(
                     label,
-                    key=f"cal_day_{year}_{month}_{day_num}",
+                    key=f"cal_day_{year}_{month}_{week_idx}_{col_idx}",
                     use_container_width=True,
                 )
                 st.markdown("</div>", unsafe_allow_html=True)
