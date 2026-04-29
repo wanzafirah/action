@@ -98,7 +98,7 @@ Return exactly this schema (no extra fields, no markdown):
   "title": "string",
   "objective": "string",
   "summary": "string",
-  "follow_up": true,
+  "follow_up": false,
   "nlp_pipeline": {"named_entities": {"persons": [], "organizations": [], "dates": [], "locations": []}},
   "action_items": [{"text": "string", "owner": "Not stated", "department": "string", "deadline": "None", "priority": "Medium"}]
 }
