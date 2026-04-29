@@ -7,7 +7,7 @@ anywhere, including unit tests.
 # ------------------------------------------------------------------
 # Model configuration
 # ------------------------------------------------------------------
-OLLAMA_MODEL = "llama3.2:latest"
+OLLAMA_MODEL = "llama3.2:3b"
 WHISPER_MODEL = "tiny"           # faster-whisper model size: tiny / base / small / medium
 
 # ------------------------------------------------------------------
