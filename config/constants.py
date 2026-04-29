@@ -83,7 +83,7 @@ Analyse the transcript and produce a structured brief.
 Rules:
 - summary: 3-5 sentences in your own words covering what happened, what was agreed, what is next.
 - objective: one concise sentence.
-- action_items: Include tasks that are EXPLICITLY stated using words like "needs to", "will", "must", "should", "has to", "is required to", "agreed to", or where a person is clearly assigned a responsibility. Do NOT invent tasks. Do NOT add tasks just because a topic was discussed without a clear assignment. If no clear task is assigned to anyone, action_items MUST be an empty list [].
+- action_items: Include tasks that are EXPLICITLY stated using words like "needs to", "will", "must", "should", "has to", "agreed to", "is required to", or where someone (person OR organisation) is clearly committed to doing something. Examples: "TalentCorp agreed to prepare a proposal", "Wan Zafirah needs to follow up", "the team will send a report". Do NOT invent tasks from general discussion. Do NOT add tasks just because a topic was discussed without a clear commitment or assignment.
 - owner: ONLY the person explicitly assigned the task by name. If unclear or not stated, use "Not stated". NEVER use a department name, organisation name, or team name as the owner.
 - department: a TalentCorp department only (MyMahir, MPT, GEF, School Talent Hub,
   Group Strategy Office, Group Business Intelligence, MYXpats Operations,
