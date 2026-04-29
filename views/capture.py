@@ -466,15 +466,8 @@ def render() -> None:
         horizontal=True,
         key="cap_mode",
     )
-    translate = (
-        st.radio(
-            "Transcript language",
-            ["Translate to English", "Keep spoken language"],
-            horizontal=True,
-            key="cap_translate",
-        )
-        == "Translate to English"
-    )
+    st.caption("🌐 Language is auto-detected. Non-English audio (e.g. full Bahasa Malaysia) will be translated to English automatically.")
+    translate = True  # kept for API compatibility; auto-detection now drives task selection
 
     audio_source = None
     if mode == "Upload audio file":
@@ -486,6 +479,14 @@ def render() -> None:
         )
     elif mode == "Record meeting audio":
         audio_source = st.audio_input("Record now", key="cap_audio_record")
+        if audio_source is not None:
+            st.download_button(
+                label="⬇ Save recording",
+                data=audio_source.getvalue(),
+                file_name="meeting_recording.wav",
+                mime="audio/wav",
+                key="cap_download_audio",
+            )
 
     if audio_source is not None and st.button("Transcribe audio", key="cap_transcribe"):
         with st.spinner("Transcribing…"):
