@@ -214,10 +214,7 @@ def json_loads_safe(value, fallback):
     except Exception:
         return fallback
 
-
-# ------------------------------------------------------------------
-# Transcript helpers
-# ------------------------------------------------------------------
+#transcript helper
 def transcript_sentences(text: str) -> list[str]:
     return [p.strip() for p in re.split(r"(?<=[.!?])\s+", text or "") if p.strip()]
 
