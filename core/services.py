@@ -134,8 +134,11 @@ def get_whisper_model():
 def transcribe_audio_file(uploaded_file, translate_to_english: bool = True) -> str:
     """Transcribe an audio file and return the text.
 
-    Language is auto-detected by Whisper. If `translate_to_english` is True,
-    the output is translated to English; otherwise the spoken language is kept.
+    Auto-detects the language first. If the detected language is English or
+    Manglish (en), just transcribes as-is. If non-English (e.g. pure Bahasa
+    Malaysia), translates to English automatically regardless of the toggle.
+    The translate_to_english flag is kept for backward compatibility but
+    language auto-detection now drives the decision.
     """
     model = get_whisper_model()
     name = getattr(uploaded_file, "name", "audio.wav")
@@ -148,20 +151,40 @@ def transcribe_audio_file(uploaded_file, translate_to_english: bool = True) -> s
     tmp.write(data)
     tmp.close()
 
+    initial_prompt = (
+        "This is a TalentCorp Malaysia internal meeting in Manglish — a mix of "
+        "English and Bahasa Malaysia. "
+        "Brand names: TalentCorp, MyMahir, MyNext, MyXpats, MyHeart, MyWira, "
+        "GEF, MPT, MYXpats, TCBD, GCEO, Supabase. "
+        "Common Malay words: lah, kan, boleh, macam, memang, sikit, banyak, "
+        "sudah, belum, takde, takut, cakap, kena, okay, ya, eh, ah, "
+        "nak, ada, dari, untuk, dengan, tapi, sebab, kalau, bila, semua. "
+        "Departments: Group Digital, Group Finance, Group Human Resources, "
+        "Group Strategy Office, Campus Engagement, School Talent Hub, "
+        "MyMahir Workforce Solutions, Group Business Intelligence."
+    )
+
     try:
-        task = "translate" if translate_to_english else "transcribe"
-        initial_prompt = (
-            "This is a TalentCorp Malaysia internal meeting in Manglish — a mix of "
-            "English and Bahasa Malaysia. "
-            "Brand names: TalentCorp, MyMahir, MyNext, MyXpats, MyHeart, MyWira, "
-            "GEF, MPT, MYXpats, TCBD, GCEO, Supabase. "
-            "Common Malay words: lah, kan, boleh, macam, memang, sikit, banyak, "
-            "sudah, belum, takde, takut, cakap, kena, okay, ya, eh, ah, "
-            "nak, ada, dari, untuk, dengan, tapi, sebab, kalau, bila, semua. "
-            "Departments: Group Digital, Group Finance, Group Human Resources, "
-            "Group Strategy Office, Campus Engagement, School Talent Hub, "
-            "MyMahir Workforce Solutions, Group Business Intelligence."
+        # Step 1 — fast language detection (beam_size=1 is quick)
+        _, info = model.transcribe(
+            tmp.name,
+            task="transcribe",
+            vad_filter=True,
+            beam_size=1,
+            language=None,
         )
+        detected_lang = info.language          # e.g. "en", "ms", "zh"
+        lang_prob     = info.language_probability
+
+        # Step 2 — decide task:
+        # - If audio is English or Manglish (detected as "en") → transcribe as-is
+        # - If audio is another language (BM, Mandarin, etc.) with high confidence → translate
+        if detected_lang == "en" or lang_prob < 0.6:
+            task = "transcribe"
+        else:
+            task = "translate"
+
+        # Step 3 — actual transcription with correct task
         segments, _info = model.transcribe(
             tmp.name,
             task=task,
