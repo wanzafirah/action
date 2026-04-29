@@ -148,7 +148,21 @@ def normalize_result(result: dict, transcript: str, metadata: dict | None = None
         # Skip placeholder / empty action items the LLM fabricates when nothing exists
         if raw_text.lower() in _EMPTY_TEXTS:
             continue
-        owner = normalize_value(action.get("owner"), "Not stated")
+        raw_owner = normalize_value(action.get("owner"), "Not stated")
+        # If the LLM put a department/org name as the owner, reject it
+        from config.constants import TALENTCORP_DEPT_KEYWORDS
+        _ORG_KEYWORDS = {
+            "talentcorp", "talent corp", "mymahir", "mynext", "myxpats",
+            "myheart", "mywira", "gef", "mpt", "tcbd", "gceo",
+            "group", "office", "division", "team", "department", "unit",
+            "malaysia", "sdn bhd", "berhad",
+        }
+        owner_lower = raw_owner.lower()
+        is_org = (
+            owner_lower in TALENTCORP_DEPT_KEYWORDS
+            or any(kw in owner_lower for kw in _ORG_KEYWORDS)
+        )
+        owner = "Not stated" if is_org else raw_owner
         department = normalize_value(action.get("department") or action.get("company"), "Not stated")
         cleaned_actions.append({
             "text": raw_text,
@@ -189,12 +203,14 @@ _TRIVIAL_INPUTS = {
 def _is_trivial_transcript(text: str) -> bool:
     """Return True if the transcript is too short or trivial to analyse."""
     stripped = text.strip().lower().rstrip("!.,? ")
-    if len(stripped) < 30:
-        # Check if it's just a greeting or short non-meeting text
+    # Require at least 80 chars — anything shorter is likely a test or accidental input
+    if len(stripped) < 80:
         words = stripped.split()
+        # Pure greetings/single words — always trivial
         if all(w in _TRIVIAL_INPUTS for w in words):
             return True
-        if len(stripped) < 15:
+        # Very short text with no sentence structure (no verb-like words) — trivial
+        if len(stripped) < 50:
             return True
     return False
 
@@ -223,7 +239,7 @@ def run_pipeline(transcript: str, metadata: dict | None = None) -> dict:
     )
 
     try:
-        raw = call_ollama(PIPELINE_SYSTEM, user_msg, max_tokens=450, num_ctx=3072)
+        raw = call_ollama(PIPELINE_SYSTEM, user_msg, max_tokens=450, num_ctx=3072, temperature=0.0)
         try:
             result = extract_json(raw)
         except Exception:
