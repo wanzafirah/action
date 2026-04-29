@@ -109,17 +109,22 @@ def normalize_result(result: dict, transcript: str, metadata: dict | None = None
     merged["category"]     = normalize_value(metadata.get("Category"),      safe["category"])
     merged["outcome"]      = normalize_value(result.get("outcome"),          "Not provided")
 
-    # merge key by key so missing subkeys get their defaults.
-    llm_nlp = result.get("nlp_pipeline") or {}
-    merged["nlp_pipeline"] = {**safe["nlp_pipeline"], **llm_nlp}
-    merged["nlp_pipeline"]["named_entities"] = {
-        **safe["nlp_pipeline"]["named_entities"],
-        **(llm_nlp.get("named_entities") or {}),
-    }
-    # Always compute token/sentence counts in Python — LLM no longer generates them
+    # Rebuild nlp_pipeline entirely in Python — LLM only returns a flat "persons" list
+    # to save output tokens. organizations/dates/locations default to [].
+    persons = result.get("persons") or (result.get("nlp_pipeline") or {}).get("named_entities", {}).get("persons", [])
+    if not isinstance(persons, list):
+        persons = []
     words = (transcript or "").split()
-    merged["nlp_pipeline"]["token_count"] = len(words)
-    merged["nlp_pipeline"]["sentence_count"] = len(transcript_sentences(transcript))
+    merged["nlp_pipeline"] = {
+        "token_count": len(words),
+        "sentence_count": len(transcript_sentences(transcript)),
+        "named_entities": {
+            "persons": persons,
+            "organizations": [],
+            "dates": [],
+            "locations": [],
+        },
+    }
 
     merged["classification"] = {**safe["classification"], **(result.get("classification") or {})}
 
@@ -175,7 +180,7 @@ def normalize_result(result: dict, transcript: str, metadata: dict | None = None
 #input (meeting recap)
 def run_pipeline(transcript: str, metadata: dict | None = None) -> dict:
     """Analyse a transcript and return the normalised meeting brief."""
-    compact = compact_transcript_for_prompt((transcript or "").strip(), max_chars=1000)
+    compact = compact_transcript_for_prompt((transcript or "").strip(), max_chars=700)
 
     # Only pass the most useful metadata fields to keep the prompt short
     _KEEP = {"Title", "Category", "Meeting Date", "Departments", "Report By"}
@@ -192,7 +197,7 @@ def run_pipeline(transcript: str, metadata: dict | None = None) -> dict:
     )
 
     try:
-        raw = call_ollama(PIPELINE_SYSTEM, user_msg, max_tokens=450, num_ctx=1500)
+        raw = call_ollama(PIPELINE_SYSTEM, user_msg, max_tokens=280, num_ctx=900)
         try:
             result = extract_json(raw)
         except Exception:
