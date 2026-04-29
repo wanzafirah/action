@@ -54,7 +54,7 @@ def render() -> None:
 
     c1, c2, c3 = st.columns(3)
     for col, title, value, sub, color in [
-        (c1, "Companies",  f"{total_companies:,}", "Unique companies",                "#1d4ed8"),
+        (c1, "Companies",  f"{total_companies:,}", "Company list",                    "#1d4ed8"),
         (c2, "Records",    f"{total_records:,}",   "Programme participation entries",  "#0f766e"),
         (c3, "Programmes", str(len(programmes)),   "Active programmes",                "#92400e"),
     ]:
