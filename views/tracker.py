@@ -132,7 +132,8 @@ def _render_meeting(meeting: dict) -> None:
     )
 
     # ── Original content comparison ──────────────────────────────────
-    orig_t = meeting.get("transcript_original", "")
+    # Fall back to the regular transcript if transcript_original column doesn't exist yet
+    orig_t = meeting.get("transcript_original", "") or meeting.get("transcript", "")
     orig_r = meeting.get("recap_original", "")
     if orig_t or orig_r:
         with st.expander("View original content", expanded=False):
