@@ -182,7 +182,7 @@ def normalize_result(result: dict, transcript: str, metadata: dict | None = None
 #input (meeting recap)
 def run_pipeline(transcript: str, metadata: dict | None = None) -> dict:
     """Analyse a transcript and return the normalised meeting brief."""
-    compact = compact_transcript_for_prompt((transcript or "").strip(), max_chars=3000)
+    compact = compact_transcript_for_prompt((transcript or "").strip(), max_chars=2000)
 
     # Only pass the most useful metadata fields to keep the prompt short
     _KEEP = {"Title", "Category", "Meeting Date", "Departments", "Report By"}
@@ -199,7 +199,7 @@ def run_pipeline(transcript: str, metadata: dict | None = None) -> dict:
     )
 
     try:
-        raw = call_ollama(PIPELINE_SYSTEM, user_msg, max_tokens=450, num_ctx=4096)
+        raw = call_ollama(PIPELINE_SYSTEM, user_msg, max_tokens=450, num_ctx=3072)
         try:
             result = extract_json(raw)
         except Exception:
