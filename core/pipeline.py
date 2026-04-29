@@ -12,36 +12,6 @@ import ast
 import json
 import re
 
-
-# ------------------------------------------------------------------
-# Action sentence cleaner
-# ------------------------------------------------------------------
-_PREAMBLES = re.compile(
-    r"^(the meeting concluded with\s+|both (parties|sides|teams?)\s+(agreed|decided|committed)\s+(that\s+)?|"
-    r"it was (agreed|decided|noted)\s+(that\s+)?|during the (meeting|discussion|session),?\s+|"
-    r"(additionally|furthermore|also|finally|in conclusion),?\s+|"
-    r"the (session|discussion|meeting) ended with\s+|"
-    r"(the team|the group|all parties)\s+(agreed|decided|committed)\s+(that\s+)?)",
-    re.IGNORECASE,
-)
-
-def _clean_action_text(text: str) -> str:
-    """Convert a raw transcript sentence into a concise action statement.
-
-    e.g. "The meeting concluded with TalentCorp agreeing to prepare a proposal."
-         → "TalentCorp to prepare a proposal"
-    """
-    t = text.strip()
-    # Strip leading preamble phrases
-    t = _PREAMBLES.sub("", t).strip()
-    # "X agreeing to Y"  → "X to Y"
-    t = re.sub(r'\b(\w[\w\s]{1,30}?)\s+agreeing to\b', r'\1 to', t, flags=re.IGNORECASE)
-    # "X committing to Y" → "X to Y"
-    t = re.sub(r'\b(\w[\w\s]{1,30}?)\s+committing to\b', r'\1 to', t, flags=re.IGNORECASE)
-    # Remove trailing punctuation and re-capitalise
-    t = t.rstrip('.').strip()
-    return t[0].upper() + t[1:] if t else text.strip()
-
 from config.constants import JSON_REPAIR_SYSTEM, PIPELINE_SYSTEM
 from core.services import call_ollama
 from utils.helpers import (
@@ -57,8 +27,8 @@ def extract_json(raw: str) -> dict:
     """Parse JSON from the LLM output, tolerating small formatting mistakes."""
     cleaned = re.sub(r"```(?:json)?", "", raw or "").strip()
     cleaned = (
-        cleaned.replace("\u201c", '"').replace("\u201d", '"')
-               .replace("\u2018", "'").replace("\u2019", "'")
+        cleaned.replace("“", '"').replace("”", '"')
+               .replace("‘", "'").replace("’", "'")
     )
 
     # 1. Direct parse
@@ -75,8 +45,8 @@ def extract_json(raw: str) -> dict:
 
     repairs = [
         candidate,
-        re.sub(r",\s*([}\]])", r"\1", candidate),                           
-        re.sub(r'([{\s,])([A-Za-z_][\w\- ]*)(\s*:)', r'\1"\2"\3', candidate),  
+        re.sub(r",\s*([}\]])", r"\1", candidate),
+        re.sub(r'([{\s,])([A-Za-z_][\w\- ]*)(\s*:)', r'\1"\2"\3', candidate),
     ]
     for repair in repairs:
         try:
@@ -107,7 +77,6 @@ def _safe_result(transcript: str, metadata: dict | None = None) -> dict:
         "meeting_type": normalize_value(metadata.get("Activity Type"), "Not Provided"),
         "category": normalize_value(metadata.get("Category"), "Not Provided"),
         "nlp_pipeline": {
-            # token/sentence counts computed in Python — not asked from LLM
             "token_count": len(words),
             "sentence_count": len(transcript_sentences(transcript)),
             "named_entities": {"persons": [], "organizations": [], "dates": [], "locations": []},
@@ -133,53 +102,44 @@ def normalize_result(result: dict, transcript: str, metadata: dict | None = None
 
     merged = {**safe, **result}
 
-    # meeting_type / category / outcome come from form metadata, not LLM
     metadata = metadata or {}
     merged["meeting_type"] = normalize_value(metadata.get("Activity Type"), safe["meeting_type"])
     merged["category"]     = normalize_value(metadata.get("Category"),      safe["category"])
     merged["outcome"]      = normalize_value(result.get("outcome"),          "Not provided")
 
-    # merge key by key so missing subkeys get their defaults.
     llm_nlp = result.get("nlp_pipeline") or {}
     merged["nlp_pipeline"] = {**safe["nlp_pipeline"], **llm_nlp}
     merged["nlp_pipeline"]["named_entities"] = {
         **safe["nlp_pipeline"]["named_entities"],
         **(llm_nlp.get("named_entities") or {}),
     }
-    # Always compute token/sentence counts in Python — LLM no longer generates them
     words = (transcript or "").split()
     merged["nlp_pipeline"]["token_count"] = len(words)
     merged["nlp_pipeline"]["sentence_count"] = len(transcript_sentences(transcript))
 
     merged["classification"] = {**safe["classification"], **(result.get("classification") or {})}
 
-    # Lists must be lists — key_decisions / discussion_points default to [] since LLM no longer generates them
     for key in ("key_decisions", "discussion_points", "action_items"):
         if not isinstance(merged.get(key), list):
             merged[key] = safe[key]
 
-    # Strings must be non-empty
     for key in ("title", "meeting_type", "category", "objective", "summary", "outcome"):
         merged[key] = normalize_value(merged.get(key), safe[key])
 
-    # Booleans
     merged["follow_up"] = parse_yes_no(merged.get("follow_up"))
     merged["follow_up_reason"] = normalize_value(merged.get("follow_up_reason"), "")
 
-    # Placeholder texts the LLM writes when it finds no tasks — filter these out.
     _EMPTY_TEXTS = {"none", "n/a", "not stated", "no action items", "untitled action", ""}
 
-    # Clean each action item so later UI code can trust the shape.
     cleaned_actions = []
     for action in merged["action_items"]:
         if not isinstance(action, dict):
             continue
         raw_text = (action.get("text") or "").strip()
-        # Skip placeholder / empty action items the LLM fabricates when nothing exists
         if raw_text.lower() in _EMPTY_TEXTS:
             continue
         raw_owner = normalize_value(action.get("owner"), "Not stated")
-        # If the LLM put a department/org name as the owner, reject it
+        # Reject org/department names as owner — must be a person's name
         from config.constants import TALENTCORP_DEPT_KEYWORDS
         _ORG_KEYWORDS = {
             "talentcorp", "talent corp", "mymahir", "mynext", "myxpats",
@@ -211,44 +171,11 @@ def normalize_result(result: dict, transcript: str, metadata: dict | None = None
         })
     merged["action_items"] = cleaned_actions
 
-    # Keep classification counts in sync.
     merged["classification"]["action_items_count"] = len(cleaned_actions)
     merged["classification"]["decisions_count"] = len(merged["key_decisions"])
     merged["classification"]["discussion_points_count"] = len(merged["discussion_points"])
 
-    # Follow-up is true when there are real extracted action items.
-    # Python fallback: if LLM missed action items but transcript has clear commitment phrases,
-    # still flag follow_up=True so the user knows to check.
-    _ACTION_SIGNALS = [
-        "agreed to", "will prepare", "will send", "will submit", "will provide",
-        "will arrange", "will follow up", "to follow up", "needs to", "need to",
-        "has to", "must submit", "must prepare", "must send", "should send",
-        "should prepare", "action item", "next step", "will present",
-        "will coordinate", "will organise", "will organize", "will develop",
-        "will draft", "will share", "will schedule", "will reach out",
-    ]
-    transcript_lower = (transcript or "").lower()
-
-    # If LLM missed action items, extract commitment sentences directly from transcript
-    if not cleaned_actions:
-        for sent in transcript_sentences(transcript or ""):
-            sent_lower = sent.lower().strip()
-            if any(signal in sent_lower for signal in _ACTION_SIGNALS) and len(sent.strip()) > 15:
-                cleaned_actions.append({
-                    "text": _clean_action_text(sent),
-                    "owner": "Not stated",
-                    "department": "Not stated",
-                    "company": "Not stated",
-                    "deadline": "None",
-                    "priority": "Medium",
-                    "status": "Pending",
-                    "follow_up_required": True,
-                    "follow_up_reason": "",
-                    "suggestion": "Review and assign this action item.",
-                })
-        merged["action_items"] = cleaned_actions
-        merged["classification"]["action_items_count"] = len(cleaned_actions)
-
+    # Follow-up is ONLY true when there are real extracted action items.
     merged["follow_up"] = bool(cleaned_actions)
 
     return merged
@@ -264,13 +191,10 @@ _TRIVIAL_INPUTS = {
 def _is_trivial_transcript(text: str) -> bool:
     """Return True if the transcript is too short or trivial to analyse."""
     stripped = text.strip().lower().rstrip("!.,? ")
-    # Require at least 80 chars — anything shorter is likely a test or accidental input
     if len(stripped) < 80:
         words = stripped.split()
-        # Pure greetings/single words — always trivial
         if all(w in _TRIVIAL_INPUTS for w in words):
             return True
-        # Very short text with no sentence structure (no verb-like words) — trivial
         if len(stripped) < 50:
             return True
     return False
@@ -285,7 +209,6 @@ def run_pipeline(transcript: str, metadata: dict | None = None) -> dict:
     if _is_trivial_transcript(compact):
         return normalize_result(_safe_result(compact, metadata), compact, metadata)
 
-    # Only pass the most useful metadata fields to keep the prompt short
     _KEEP = {"Title", "Category", "Meeting Date", "Departments", "Report By"}
     metadata_lines = [
         f"{label}: {normalize_value(value, '')}"
@@ -396,8 +319,7 @@ _BYE = {"bye", "goodbye", "see you", "selamat tinggal", "chow", "ciao", "tata"}
 
 
 def _quick_reply(question: str) -> str | None:
-    """Return an instant reply for greetings/chit-chat without calling Ollama.
-    Returns None if the question should go to the LLM."""
+    """Return an instant reply for greetings/chit-chat without calling Ollama."""
     q = question.strip().lower().rstrip("!.,? ")
 
     if q in _GREETINGS or any(q.startswith(g + " ") for g in _GREETINGS):
@@ -417,7 +339,6 @@ def _quick_reply(question: str) -> str | None:
     if q in _BYE:
         return "Goodbye! Come back anytime to check your meetings."
 
-    # Very short inputs that aren't questions — gently redirect
     if len(q.split()) <= 2 and "?" not in question and not any(
         kw in q for kw in ("how", "what", "who", "when", "where", "why",
                            "list", "show", "tell", "find", "count", "overdue",
@@ -428,20 +349,17 @@ def _quick_reply(question: str) -> str | None:
             "action items, deadlines, or stakeholders."
         )
 
-    return None  # let the LLM handle it
+    return None
 
 
 def _build_meeting_context(question: str, meetings: list) -> tuple[str, int, int]:
-    """Build a compact meeting context string, capped to keep LLM fast.
-    Returns (context_str, num_overdue_meetings, total_overdue_actions)."""
+    """Build a compact meeting context string, capped to keep LLM fast."""
     from utils.helpers import join_list, normalize_status
 
-    # Detect if question is about contacts to decide whether to load stakeholder db
     _contact_kws = ("contact", "phone", "email", "stakeholder", "organisation",
                     "company", "who is", "siapa", "nombor", "address")
     needs_stk = any(kw in question.lower() for kw in _contact_kws)
 
-    # Cap summary per meeting to keep total context small and fast
     blocks = []
     for m in meetings:
         actions = m.get("actions", []) or []
@@ -478,7 +396,6 @@ def _build_meeting_context(question: str, meetings: list) -> tuple[str, int, int
 
     meeting_context = "\n\n".join(blocks) if blocks else "No meeting data available."
 
-    # Cap total context at 3000 chars to keep inference fast
     if len(meeting_context) > 3000:
         meeting_context = meeting_context[:3000] + "\n[...context capped for speed]"
 
@@ -514,7 +431,6 @@ def _build_meeting_context(question: str, meetings: list) -> tuple[str, int, int
 # ------------------------------------------------------------------
 def chat_with_meetings(question: str, meetings: list) -> str:
     """Answer a question grounded in meeting data. Handles greetings instantly."""
-    # Greetings / chit-chat — no Ollama call needed
     quick = _quick_reply(question)
     if quick:
         return quick
@@ -538,7 +454,6 @@ def stream_chat_with_meetings(question: str, meetings: list):
     """Streaming version — handles greetings instantly, uses LLM only for real questions."""
     from core.services import stream_ollama
 
-    # Greetings / chit-chat — instant reply, zero Ollama calls
     quick = _quick_reply(question)
     if quick:
         yield quick
