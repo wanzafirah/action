@@ -38,8 +38,7 @@ except ImportError:
 # OLLAMA
 # ==================================================================
 def call_ollama(system: str, user_msg: str, max_tokens: int = 1800,
-                temperature: float = 0.1, num_ctx: int = 3072,
-                num_thread: int | None = None) -> str:
+                temperature: float = 0.1, num_ctx: int = 3072) -> str:
     """Send a prompt to Ollama and return the raw text response.
 
     Automatically adds the ngrok-skip header when the URL points to an ngrok
@@ -50,7 +49,6 @@ def call_ollama(system: str, user_msg: str, max_tokens: int = 1800,
     if "ngrok" in url:
         headers["ngrok-skip-browser-warning"] = "true"
 
-    _num_thread = num_thread or os.cpu_count() or 4
     payload = {
         "model": OLLAMA_MODEL,
         "prompt": user_msg,
@@ -62,7 +60,6 @@ def call_ollama(system: str, user_msg: str, max_tokens: int = 1800,
             "temperature": temperature,
             "top_p": 0.9,
             "repeat_penalty": 1.1,  # reduce repetition → shorter/faster output
-            "num_thread": _num_thread,  # use all available CPU cores
         },
     }
 
@@ -84,8 +81,7 @@ def call_ollama(system: str, user_msg: str, max_tokens: int = 1800,
 
 
 def stream_ollama(system: str, user_msg: str, max_tokens: int = 300,
-                  num_ctx: int = 2048, temperature: float = 0.1,
-                  num_thread: int | None = None) -> Generator[str, None, None]:
+                  num_ctx: int = 2048, temperature: float = 0.1) -> Generator[str, None, None]:
     """Stream tokens from Ollama one chunk at a time.
 
     Yields each text fragment as it arrives so the UI can display a
@@ -96,7 +92,6 @@ def stream_ollama(system: str, user_msg: str, max_tokens: int = 300,
     if "ngrok" in url:
         headers["ngrok-skip-browser-warning"] = "true"
 
-    _num_thread = num_thread or os.cpu_count() or 4
     payload = {
         "model": OLLAMA_MODEL,
         "prompt": user_msg,
@@ -108,7 +103,6 @@ def stream_ollama(system: str, user_msg: str, max_tokens: int = 300,
             "temperature": temperature,
             "top_p": 0.9,
             "repeat_penalty": 1.1,
-            "num_thread": _num_thread,
         },
     }
 
