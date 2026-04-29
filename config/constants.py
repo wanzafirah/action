@@ -8,7 +8,7 @@ anywhere, including unit tests.
 # Model configuration
 # ------------------------------------------------------------------
 OLLAMA_MODEL = "llama3.2:latest"
-WHISPER_MODEL = "base"           # faster-whisper model size: tiny / base / small / medium
+WHISPER_MODEL = "tiny"           # faster-whisper model size: tiny / base / small / medium
 
 # ------------------------------------------------------------------
 # Supabase table names
@@ -78,41 +78,20 @@ STATUS_CFG = {
 # ---- Meeting analysis pipeline ----------------------------------
 PIPELINE_SYSTEM = """You are a meeting intelligence system. Return ONLY valid JSON, no markdown.
 
-Your task is to analyse a meeting transcript and produce a structured recap that
-someone who missed the meeting can read in 30 seconds.
-
-Write:
-- A 4-6 sentence summary in your own words (not a copy of the first line).
-- A concise one-line objective.
-- Key decisions that were explicitly agreed, confirmed, or approved.
-- Discussion points covering the main topics raised.
-- Action items for every explicit task, request, commitment, or deliverable.
+Analyse the transcript and produce a structured brief.
 
 Rules:
-- Only capture action items that are explicitly stated. Do not invent tasks.
-- For each action item include: text, owner, department, deadline, priority,
-  follow_up_required, follow_up_reason, suggestion.
-- CRITICAL OWNER RULE: "owner" must ONLY be set to a person's name if that specific
-  person was explicitly told to do the task, volunteered to do it, or was directly
-  assigned it during the meeting. DO NOT use names from the attendees list, People
-  Involved section, or anyone mentioned in the meeting unless they were specifically
-  assigned THAT task. If there is any doubt, use "Not stated".
-- "owner" must be a PERSON's name (e.g. "Ahmad", "Sarah"), NOT an organisation name.
-  If only an organisation is mentioned, use "Not stated" for owner and put the
-  organisation name in "department".
-- "department" MUST be a TalentCorp internal department name. Valid departments are:
-  MyHeart Facilitation, MPT, Graduates Emerging Talent, School Talent Hub,
-  GCEO Liaison Office, Communications, Group Strategy Office, Group Business Intelligence,
-  GEF, MYXpats Operations, Group Research Development and Policy, MyMahir,
-  MyMahir - Workforce Solution, Graduate & Emerging Talent.
-  Do NOT put an external company name (e.g. "1337 Ventures", "CIMB Bank") in department.
-  If no TalentCorp department is mentioned, use "Not stated".
-- If deadline is NOT explicitly stated in the transcript, use "None". Do NOT guess or infer
-  deadlines from vague language like "soon" or "as soon as possible".
-- Only use a deadline if an actual date, month, or clear timeframe is stated near that task.
-- suggestion is a short practical next-step idea.
-- If the transcript is only about purpose/objective with no tasks, return an
-  empty action_items list and set follow_up to false.
+- summary: 3-5 sentences in your own words covering what happened, what was agreed, what is next.
+- objective: one concise sentence.
+- action_items: only tasks explicitly stated — do not invent.
+- owner: ONLY the person explicitly assigned the task. If unclear, use "Not stated".
+- owner must be a person's name, never an organisation name.
+- department: a TalentCorp department only (MyMahir, MPT, GEF, School Talent Hub,
+  Group Strategy Office, Group Business Intelligence, MYXpats Operations,
+  Communications, GCEO Liaison Office, MyHeart Facilitation, Graduate & Emerging Talent).
+  Use "Not stated" if none applies.
+- deadline: use "None" unless an actual date or clear timeframe is stated.
+- If no tasks exist, return empty action_items and follow_up: false.
 
 Return exactly this schema:
 {
@@ -120,8 +99,6 @@ Return exactly this schema:
   "meeting_type": "string",
   "category": "string",
   "nlp_pipeline": {
-    "token_count": 0,
-    "sentence_count": 0,
     "named_entities": {
       "persons": [],
       "organizations": [],
@@ -129,18 +106,10 @@ Return exactly this schema:
       "locations": []
     }
   },
-  "classification": {
-    "action_items_count": 0,
-    "decisions_count": 0,
-    "discussion_points_count": 0
-  },
   "objective": "string",
   "summary": "string",
   "outcome": "string",
   "follow_up": true,
-  "follow_up_reason": "string",
-  "key_decisions": [],
-  "discussion_points": [],
   "action_items": [
     {
       "text": "string",
@@ -148,9 +117,7 @@ Return exactly this schema:
       "department": "string",
       "deadline": "None",
       "priority": "Medium",
-      "follow_up_required": true,
-      "follow_up_reason": "string",
-      "suggestion": "string"
+      "status": "Pending"
     }
   ]
 }
