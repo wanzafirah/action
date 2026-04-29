@@ -179,10 +179,34 @@ def normalize_result(result: dict, transcript: str, metadata: dict | None = None
     return merged
 
 
+# Words that indicate the transcript has no real meeting content
+_TRIVIAL_INPUTS = {
+    "hi", "hello", "hey", "hai", "hye", "helo", "yo", "sup", "test", "testing",
+    "ok", "okay", "yes", "no", "thanks", "thank you", "bye", "goodbye",
+    "assalamualaikum", "salam",
+}
+
+def _is_trivial_transcript(text: str) -> bool:
+    """Return True if the transcript is too short or trivial to analyse."""
+    stripped = text.strip().lower().rstrip("!.,? ")
+    if len(stripped) < 30:
+        # Check if it's just a greeting or short non-meeting text
+        words = stripped.split()
+        if all(w in _TRIVIAL_INPUTS for w in words):
+            return True
+        if len(stripped) < 15:
+            return True
+    return False
+
+
 #input (meeting recap)
 def run_pipeline(transcript: str, metadata: dict | None = None) -> dict:
     """Analyse a transcript and return the normalised meeting brief."""
     compact = compact_transcript_for_prompt((transcript or "").strip(), max_chars=2000)
+
+    # Guard: skip LLM entirely if transcript is too short / trivial
+    if _is_trivial_transcript(compact):
+        return normalize_result(_safe_result(compact, metadata), compact, metadata)
 
     # Only pass the most useful metadata fields to keep the prompt short
     _KEEP = {"Title", "Category", "Meeting Date", "Departments", "Report By"}
