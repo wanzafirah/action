@@ -364,8 +364,7 @@ def _render_chatbot(meetings: list) -> None:
         pending_q = messages[-1]["text"]
         with container:
             from ui.components import chat_bubble
-            for entry in settled:
-                chat_bubble(entry["role"], entry["text"])
+            # settled messages are already rendered above — only add the pending user bubble
             chat_bubble("user", pending_q)
 
             # Stream assistant reply with a typing effect
