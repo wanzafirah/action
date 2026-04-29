@@ -186,9 +186,21 @@ def normalize_result(result: dict, transcript: str, metadata: dict | None = None
     merged["classification"]["decisions_count"] = len(merged["key_decisions"])
     merged["classification"]["discussion_points_count"] = len(merged["discussion_points"])
 
-    # Follow-up is ONLY true when there are real extracted action items.
-    # This prevents "Follow-up: Yes" appearing when the LLM found nothing to extract.
-    merged["follow_up"] = bool(cleaned_actions)
+    # Follow-up is true when there are real extracted action items.
+    # Python fallback: if LLM missed action items but transcript has clear commitment phrases,
+    # still flag follow_up=True so the user knows to check.
+    _ACTION_SIGNALS = [
+        "agreed to", "will prepare", "will send", "will submit", "will provide",
+        "will arrange", "will follow up", "to follow up", "needs to", "need to",
+        "has to", "must submit", "must prepare", "must send", "should send",
+        "should prepare", "action item", "next step", "will present",
+        "will coordinate", "will organise", "will organize", "will develop",
+        "will draft", "will share", "will schedule", "will reach out",
+    ]
+    transcript_lower = (transcript or "").lower()
+    has_signal = any(signal in transcript_lower for signal in _ACTION_SIGNALS)
+
+    merged["follow_up"] = bool(cleaned_actions) or has_signal
 
     return merged
 
