@@ -198,9 +198,28 @@ def normalize_result(result: dict, transcript: str, metadata: dict | None = None
         "will draft", "will share", "will schedule", "will reach out",
     ]
     transcript_lower = (transcript or "").lower()
-    has_signal = any(signal in transcript_lower for signal in _ACTION_SIGNALS)
 
-    merged["follow_up"] = bool(cleaned_actions) or has_signal
+    # If LLM missed action items, extract commitment sentences directly from transcript
+    if not cleaned_actions:
+        for sent in transcript_sentences(transcript or ""):
+            sent_lower = sent.lower().strip()
+            if any(signal in sent_lower for signal in _ACTION_SIGNALS) and len(sent.strip()) > 15:
+                cleaned_actions.append({
+                    "text": sent.strip(),
+                    "owner": "Not stated",
+                    "department": "Not stated",
+                    "company": "Not stated",
+                    "deadline": "None",
+                    "priority": "Medium",
+                    "status": "Pending",
+                    "follow_up_required": True,
+                    "follow_up_reason": "",
+                    "suggestion": "Review and assign this action item.",
+                })
+        merged["action_items"] = cleaned_actions
+        merged["classification"]["action_items_count"] = len(cleaned_actions)
+
+    merged["follow_up"] = bool(cleaned_actions)
 
     return merged
 
