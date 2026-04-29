@@ -466,8 +466,13 @@ def render() -> None:
         horizontal=True,
         key="cap_mode",
     )
-    st.caption("🌐 Language is auto-detected. Non-English audio (e.g. full Bahasa Malaysia) will be translated to English automatically.")
-    translate = True  # kept for API compatibility; auto-detection now drives task selection
+    lang_choice = st.radio(
+        "Audio language",
+        ["English / Manglish", "Bahasa Melayu"],
+        horizontal=True,
+        key="cap_translate",
+    )
+    translate = lang_choice  # passed to transcribe_audio_file
 
     audio_source = None
     if mode == "Upload audio file":
@@ -491,7 +496,7 @@ def render() -> None:
     if audio_source is not None and st.button("Transcribe audio", key="cap_transcribe"):
         with st.spinner("Transcribing…"):
             try:
-                text = transcribe_audio_file(audio_source, translate)
+                text = transcribe_audio_file(audio_source, lang_choice)
                 if not text.strip():
                     st.warning(
                         "Whisper returned no speech. The file may be silent, too short, "
