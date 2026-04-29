@@ -71,12 +71,14 @@ def _repair_with_ollama(raw: str) -> dict:
 def _safe_result(transcript: str, metadata: dict | None = None) -> dict:
     """Minimal valid result used when the LLM call fails entirely."""
     metadata = metadata or {}
+    words = (transcript or "").split()
     return {
         "title": normalize_value(metadata.get("Title") or metadata.get("Activity Title"), "Untitled"),
         "meeting_type": normalize_value(metadata.get("Activity Type"), "Not Provided"),
         "category": normalize_value(metadata.get("Category"), "Not Provided"),
         "nlp_pipeline": {
-            "token_count": len((transcript or "").split()),
+            # token/sentence counts computed in Python — not asked from LLM
+            "token_count": len(words),
             "sentence_count": len(transcript_sentences(transcript)),
             "named_entities": {"persons": [], "organizations": [], "dates": [], "locations": []},
         },
@@ -101,15 +103,27 @@ def normalize_result(result: dict, transcript: str, metadata: dict | None = None
 
     merged = {**safe, **result}
 
+    # meeting_type / category / outcome come from form metadata, not LLM
+    metadata = metadata or {}
+    merged["meeting_type"] = normalize_value(metadata.get("Activity Type"), safe["meeting_type"])
+    merged["category"]     = normalize_value(metadata.get("Category"),      safe["category"])
+    merged["outcome"]      = normalize_value(result.get("outcome"),          "Not provided")
+
     # merge key by key so missing subkeys get their defaults.
-    merged["nlp_pipeline"] = {**safe["nlp_pipeline"], **(result.get("nlp_pipeline") or {})}
+    llm_nlp = result.get("nlp_pipeline") or {}
+    merged["nlp_pipeline"] = {**safe["nlp_pipeline"], **llm_nlp}
     merged["nlp_pipeline"]["named_entities"] = {
         **safe["nlp_pipeline"]["named_entities"],
-        **((result.get("nlp_pipeline") or {}).get("named_entities") or {}),
+        **(llm_nlp.get("named_entities") or {}),
     }
+    # Always compute token/sentence counts in Python — LLM no longer generates them
+    words = (transcript or "").split()
+    merged["nlp_pipeline"]["token_count"] = len(words)
+    merged["nlp_pipeline"]["sentence_count"] = len(transcript_sentences(transcript))
+
     merged["classification"] = {**safe["classification"], **(result.get("classification") or {})}
 
-    # Lists must be lists
+    # Lists must be lists — key_decisions / discussion_points default to [] since LLM no longer generates them
     for key in ("key_decisions", "discussion_points", "action_items"):
         if not isinstance(merged.get(key), list):
             merged[key] = safe[key]
@@ -122,15 +136,22 @@ def normalize_result(result: dict, transcript: str, metadata: dict | None = None
     merged["follow_up"] = parse_yes_no(merged.get("follow_up"))
     merged["follow_up_reason"] = normalize_value(merged.get("follow_up_reason"), "")
 
+    # Placeholder texts the LLM writes when it finds no tasks — filter these out.
+    _EMPTY_TEXTS = {"none", "n/a", "not stated", "no action items", "untitled action", ""}
+
     # Clean each action item so later UI code can trust the shape.
     cleaned_actions = []
     for action in merged["action_items"]:
         if not isinstance(action, dict):
             continue
+        raw_text = (action.get("text") or "").strip()
+        # Skip placeholder / empty action items the LLM fabricates when nothing exists
+        if raw_text.lower() in _EMPTY_TEXTS:
+            continue
         owner = normalize_value(action.get("owner"), "Not stated")
         department = normalize_value(action.get("department") or action.get("company"), "Not stated")
         cleaned_actions.append({
-            "text": normalize_value(action.get("text"), "Untitled action"),
+            "text": raw_text,
             "owner": owner,
             "department": department,
             "company": department,
@@ -151,8 +172,9 @@ def normalize_result(result: dict, transcript: str, metadata: dict | None = None
     merged["classification"]["decisions_count"] = len(merged["key_decisions"])
     merged["classification"]["discussion_points_count"] = len(merged["discussion_points"])
 
-    # Follow-up is true when there is at least one action.
-    merged["follow_up"] = bool(cleaned_actions) or merged["follow_up"]
+    # Follow-up is ONLY true when there are real extracted action items.
+    # This prevents "Follow-up: Yes" appearing when the LLM found nothing to extract.
+    merged["follow_up"] = bool(cleaned_actions)
 
     return merged
 
@@ -160,27 +182,24 @@ def normalize_result(result: dict, transcript: str, metadata: dict | None = None
 #input (meeting recap)
 def run_pipeline(transcript: str, metadata: dict | None = None) -> dict:
     """Analyse a transcript and return the normalised meeting brief."""
-    compact = compact_transcript_for_prompt((transcript or "").strip(), max_chars=1500)
+    compact = compact_transcript_for_prompt((transcript or "").strip(), max_chars=1000)
 
+    # Only pass the most useful metadata fields to keep the prompt short
+    _KEEP = {"Title", "Category", "Meeting Date", "Departments", "Report By"}
     metadata_lines = [
         f"{label}: {normalize_value(value, '')}"
         for label, value in (metadata or {}).items()
-        if normalize_value(value, "")
+        if label in _KEEP and normalize_value(value, "")
     ]
     metadata_block = "\n".join(metadata_lines) or "None provided"
 
     user_msg = (
-        "Return detailed JSON with summary, objective, outcome, follow-up, action items, "
-        "deadlines, and practical suggestions.\n"
-        "Use only tasks and deadlines that are explicitly stated in the meeting recap.\n"
-        "Make the summary strong enough that someone who missed the meeting understands "
-        "what happened, what was agreed, what is pending, and what should happen next.\n\n"
-        f"Activity metadata:\n{metadata_block}\n\n"
-        f"Meeting content:\n{compact}"
+        f"Metadata:\n{metadata_block}\n\n"
+        f"Transcript:\n{compact}"
     )
 
     try:
-        raw = call_ollama(PIPELINE_SYSTEM, user_msg, max_tokens=900, num_ctx=2048)
+        raw = call_ollama(PIPELINE_SYSTEM, user_msg, max_tokens=450, num_ctx=1500)
         try:
             result = extract_json(raw)
         except Exception:
@@ -203,7 +222,7 @@ def generate_followup_email(meeting: dict) -> str:
     summary    = normalize_value(meeting.get("summary"), "")
     dept       = normalize_value(meeting.get("deptName") or meeting.get("department"), "")
     report_by  = normalize_value(meeting.get("user_id") or meeting.get("updated_by"), "The Meeting Organizer")
-    decisions  = join_list(meeting.get("keyDecisions") or [], "None")
+    objective    = normalize_value(meeting.get("objective"), "")
     stakeholders = join_list(meeting.get("stakeholders") or [], "")
 
     actions = meeting.get("actions") or []
@@ -217,13 +236,14 @@ def generate_followup_email(meeting: dict) -> str:
     SYSTEM = (
         "You are an executive assistant. Write a concise professional follow-up email after a meeting. "
         "Use the exact format: start with 'Dear colleagues,', then a brief intro line, then "
-        "'MEETING RECAP', then Date, Meeting, Summary, Key Decisions, Action Items sections, "
+        "'MEETING RECAP', then Date, Meeting, Objective, Summary, Action Items sections, "
         "then 'Regards,' and the sender name. Keep it professional and concise."
     )
     user_msg = (
         f"Meeting: {title}\nDate: {date_str}\nDepartment: {dept}\n"
         f"Attendees/Stakeholders: {stakeholders}\n"
-        f"Summary: {summary}\nKey Decisions: {decisions}\n"
+        f"Objective: {objective}\n"
+        f"Summary: {summary}\n"
         f"Pending Action Items:\n" + ("\n".join(action_lines) or "None") + f"\n"
         f"Report by / Sender: {report_by}\n\n"
         "Write the follow-up email now."
@@ -258,12 +278,69 @@ def get_action_idea(action: dict) -> str:
 
 
 # ------------------------------------------------------------------
-# Chat / Q&A
+# Quick intent classifier — handles greetings/chit-chat without Ollama
 # ------------------------------------------------------------------
-def chat_with_meetings(question: str, meetings: list) -> str:
-    """Answer a question grounded in ALL stored meeting data and stakeholder directory."""
+_GREETINGS = {
+    "hi", "hello", "hey", "hai", "hye", "helo", "yo", "sup",
+    "assalamualaikum", "salam", "waalaikumsalam",
+    "good morning", "good afternoon", "good evening", "selamat pagi",
+    "selamat tengah hari", "selamat petang", "selamat malam",
+}
+_THANKS = {
+    "thanks", "thank you", "terima kasih", "tq", "ty", "cheers",
+    "ok", "okay", "alright", "noted", "got it", "i see", "sure",
+    "great", "awesome", "nice", "good", "bagus", "baik",
+}
+_BYE = {"bye", "goodbye", "see you", "selamat tinggal", "chow", "ciao", "tata"}
+
+
+def _quick_reply(question: str) -> str | None:
+    """Return an instant reply for greetings/chit-chat without calling Ollama.
+    Returns None if the question should go to the LLM."""
+    q = question.strip().lower().rstrip("!.,? ")
+
+    if q in _GREETINGS or any(q.startswith(g + " ") for g in _GREETINGS):
+        return (
+            "Hi there! I'm MeetIQ's AI assistant.\n\n"
+            "I can help you with:\n"
+            "- Pending or overdue action items\n"
+            "- Meeting summaries and objectives\n"
+            "- Deadlines and task owners\n"
+            "- Stakeholder contact details\n\n"
+            "What would you like to know about your meetings?"
+        )
+
+    if q in _THANKS:
+        return "You're welcome! Let me know if you need anything else about your meetings."
+
+    if q in _BYE:
+        return "Goodbye! Come back anytime to check your meetings."
+
+    # Very short inputs that aren't questions — gently redirect
+    if len(q.split()) <= 2 and "?" not in question and not any(
+        kw in q for kw in ("how", "what", "who", "when", "where", "why",
+                           "list", "show", "tell", "find", "count", "overdue",
+                           "pending", "task", "meeting", "action", "deadline")
+    ):
+        return (
+            "I'm your meeting assistant! Ask me about your meetings, "
+            "action items, deadlines, or stakeholders."
+        )
+
+    return None  # let the LLM handle it
+
+
+def _build_meeting_context(question: str, meetings: list) -> tuple[str, int, int]:
+    """Build a compact meeting context string, capped to keep LLM fast.
+    Returns (context_str, num_overdue_meetings, total_overdue_actions)."""
     from utils.helpers import join_list, normalize_status
 
+    # Detect if question is about contacts to decide whether to load stakeholder db
+    _contact_kws = ("contact", "phone", "email", "stakeholder", "organisation",
+                    "company", "who is", "siapa", "nombor", "address")
+    needs_stk = any(kw in question.lower() for kw in _contact_kws)
+
+    # Cap summary per meeting to keep total context small and fast
     blocks = []
     for m in meetings:
         actions = m.get("actions", []) or []
@@ -274,23 +351,24 @@ def chat_with_meetings(question: str, meetings: list) -> str:
             f"| deadline: {normalize_value(a.get('deadline'), 'Not stated')}"
             for a in actions
         ]
-        # Include external stakeholders attached to this meeting
+        overdue_flag = (
+            f"HAS OVERDUE ACTIONS: YES ({len(overdue_actions)} overdue)"
+            if overdue_actions else "HAS OVERDUE ACTIONS: NO"
+        )
+        summary_short = normalize_value(m.get("summary") or m.get("recaps"), "No summary.")[:150]
         ext_stk = m.get("externalStakeholders") or []
         ext_lines = [
-            f"  {s.get('name','')} | {s.get('position','')} | {s.get('organisation','')} | {s.get('phone','')} | {s.get('email','')}"
+            f"  {s.get('name','')} | {s.get('position','')} | {s.get('organisation','')} | {s.get('email','')}"
             for s in ext_stk if s.get("name")
-        ]
-        # Flag meetings that have overdue items so the LLM can find them easily
-        overdue_flag = f"HAS OVERDUE ACTIONS: YES ({len(overdue_actions)} overdue)" if overdue_actions else "HAS OVERDUE ACTIONS: NO"
-        # Truncate summary to keep context small → faster responses
-        summary_short = normalize_value(m.get('summary') or m.get('recaps'), 'No summary.')[:200]
+        ] if needs_stk else []
+
         blocks.append("\n".join(filter(None, [
             "--- Meeting ---",
             f"Date: {m.get('date', '')}",
             f"Title: {m.get('title', '')}",
             overdue_flag,
             f"TC Members: {join_list(m.get('stakeholders', []), 'None')}",
-            f"External Stakeholders: {chr(10).join(ext_lines) if ext_lines else 'None'}",
+            (f"External: {chr(10).join(ext_lines)}" if ext_lines else ""),
             f"Summary: {summary_short}",
             f"Total action items: {len(actions)}",
             "Action items:" if action_lines else "Action items: None",
@@ -299,101 +377,17 @@ def chat_with_meetings(question: str, meetings: list) -> str:
 
     meeting_context = "\n\n".join(blocks) if blocks else "No meeting data available."
 
-    # Only load stakeholder directory if the question is about contacts/people —
-    # skipping it for unrelated questions reduces context size and speeds up responses.
-    _contact_kws = ("contact", "phone", "email", "stakeholder", "organisation",
-                    "company", "who is", "siapa", "nombor", "address")
-    _needs_stk = any(kw in question.lower() for kw in _contact_kws)
+    # Cap total context at 3000 chars to keep inference fast
+    if len(meeting_context) > 3000:
+        meeting_context = meeting_context[:3000] + "\n[...context capped for speed]"
+
     stk_context = ""
-    if _needs_stk:
-        try:
-            from core.stakeholder_db import load_external_stakeholders
-            all_stk = load_external_stakeholders()
-            if all_stk:
-                stk_lines = [
-                    f"  {s.get('name','')} | Position: {s.get('position','')} | Organisation: {s.get('organisation','')} | Phone: {s.get('phone','')} | Email: {s.get('email','')} | Added: {s.get('date_added','')}"
-                    for s in all_stk
-                ]
-                stk_context = "--- Stakeholder Directory ---\n" + "\n".join(stk_lines)
-        except Exception:
-            pass
-
-    full_context = meeting_context + ("\n\n" + stk_context if stk_context else "")
-
-    # Pre-compute key facts so the LLM reads numbers, not calculates them
-    from utils.helpers import normalize_status as _ns
-    overdue_meetings = [
-        m for m in meetings
-        if any(_ns(a) == "Overdue" for a in (m.get("actions") or []))
-    ]
-    total_overdue_actions = sum(
-        sum(1 for a in (m.get("actions") or []) if _ns(a) == "Overdue")
-        for m in meetings
-    )
-
-    from config.constants import CHAT_SYSTEM
-    user_msg = (
-        f"FACTS (pre-computed — use these exact numbers, do not recount):\n"
-        f"- Total meetings: {len(meetings)}\n"
-        f"- Meetings with at least one overdue action: {len(overdue_meetings)}"
-        + (f" (titles: {', '.join(m.get('title','Untitled') for m in overdue_meetings)})" if overdue_meetings else "") + "\n"
-        f"- Total overdue action items across all meetings: {total_overdue_actions}\n\n"
-        f"A stakeholder directory is also included — use it to answer questions about contacts.\n\n"
-        f"Data:\n{full_context}\n\n"
-        f"Question: {question}"
-    )
-    # num_ctx=2048 and max_tokens=300 keep the chat response fast.
-    # The full pipeline uses 3072/1200 — chat needs less because summaries are truncated.
-    return call_ollama(CHAT_SYSTEM, user_msg, max_tokens=300, num_ctx=2048)
-
-
-def stream_chat_with_meetings(question: str, meetings: list):
-    """Streaming version of chat_with_meetings — yields text chunks as they arrive."""
-    from utils.helpers import join_list, normalize_status
-    from core.services import stream_ollama
-
-    # Build identical context to chat_with_meetings
-    blocks = []
-    for m in meetings:
-        actions = m.get("actions", []) or []
-        overdue_actions = [a for a in actions if normalize_status(a) == "Overdue"]
-        action_lines = [
-            f"  [{normalize_status(a)}] {normalize_value(a.get('text'))} "
-            f"| owner: {normalize_value(a.get('owner'), 'Not stated')} "
-            f"| deadline: {normalize_value(a.get('deadline'), 'Not stated')}"
-            for a in actions
-        ]
-        ext_stk = m.get("externalStakeholders") or []
-        ext_lines = [
-            f"  {s.get('name','')} | {s.get('position','')} | {s.get('organisation','')} | {s.get('phone','')} | {s.get('email','')}"
-            for s in ext_stk if s.get("name")
-        ]
-        overdue_flag = f"HAS OVERDUE ACTIONS: YES ({len(overdue_actions)} overdue)" if overdue_actions else "HAS OVERDUE ACTIONS: NO"
-        summary_short = normalize_value(m.get('summary') or m.get('recaps'), 'No summary.')[:200]
-        blocks.append("\n".join(filter(None, [
-            "--- Meeting ---",
-            f"Date: {m.get('date', '')}",
-            f"Title: {m.get('title', '')}",
-            overdue_flag,
-            f"TC Members: {join_list(m.get('stakeholders', []), 'None')}",
-            f"External Stakeholders: {chr(10).join(ext_lines) if ext_lines else 'None'}",
-            f"Summary: {summary_short}",
-            f"Total action items: {len(actions)}",
-            "Action items:" if action_lines else "Action items: None",
-            "\n".join(action_lines) if action_lines else "",
-        ])))
-
-    meeting_context = "\n\n".join(blocks) if blocks else "No meeting data available."
-
-    _contact_kws = ("contact", "phone", "email", "stakeholder", "organisation",
-                    "company", "who is", "siapa", "nombor", "address")
-    stk_context = ""
-    if any(kw in question.lower() for kw in _contact_kws):
+    if needs_stk:
         try:
             from core.stakeholder_db import load_external_stakeholders
             all_stk = load_external_stakeholders()
             stk_lines = [
-                f"  {s.get('name','')} | {s.get('position','')} | {s.get('organisation','')} | {s.get('email','')}"
+                f"  {s.get('name','')} | {s.get('position','')} | {s.get('organisation','')} | {s.get('phone','')} | {s.get('email','')}"
                 for s in all_stk if s.get("name")
             ]
             stk_context = ("--- Stakeholder Directory ---\n" + "\n".join(stk_lines)) if stk_lines else ""
@@ -402,14 +396,60 @@ def stream_chat_with_meetings(question: str, meetings: list):
 
     full_context = meeting_context + ("\n\n" + stk_context if stk_context else "")
 
-    overdue_meetings = [m for m in meetings if any(normalize_status(a) == "Overdue" for a in (m.get("actions") or []))]
-    total_overdue = sum(sum(1 for a in (m.get("actions") or []) if normalize_status(a) == "Overdue") for m in meetings)
+    overdue_meetings = [
+        m for m in meetings
+        if any(normalize_status(a) == "Overdue" for a in (m.get("actions") or []))
+    ]
+    total_overdue = sum(
+        sum(1 for a in (m.get("actions") or []) if normalize_status(a) == "Overdue")
+        for m in meetings
+    )
+
+    return full_context, len(overdue_meetings), total_overdue, overdue_meetings
+
+
+# ------------------------------------------------------------------
+# Chat / Q&A
+# ------------------------------------------------------------------
+def chat_with_meetings(question: str, meetings: list) -> str:
+    """Answer a question grounded in meeting data. Handles greetings instantly."""
+    # Greetings / chit-chat — no Ollama call needed
+    quick = _quick_reply(question)
+    if quick:
+        return quick
+
+    full_context, n_overdue_mtgs, total_overdue, overdue_meetings = _build_meeting_context(question, meetings)
 
     from config.constants import CHAT_SYSTEM
     user_msg = (
-        f"FACTS (pre-computed — use these exact numbers, do not recount):\n"
+        f"FACTS (pre-computed — use these exact numbers):\n"
         f"- Total meetings: {len(meetings)}\n"
-        f"- Meetings with at least one overdue action: {len(overdue_meetings)}"
+        f"- Meetings with at least one overdue action: {n_overdue_mtgs}"
+        + (f" (titles: {', '.join(m.get('title','Untitled') for m in overdue_meetings)})" if overdue_meetings else "") + "\n"
+        f"- Total overdue action items across all meetings: {total_overdue}\n\n"
+        f"Data:\n{full_context}\n\n"
+        f"Question: {question}"
+    )
+    return call_ollama(CHAT_SYSTEM, user_msg, max_tokens=300, num_ctx=2048)
+
+
+def stream_chat_with_meetings(question: str, meetings: list):
+    """Streaming version — handles greetings instantly, uses LLM only for real questions."""
+    from core.services import stream_ollama
+
+    # Greetings / chit-chat — instant reply, zero Ollama calls
+    quick = _quick_reply(question)
+    if quick:
+        yield quick
+        return
+
+    full_context, n_overdue_mtgs, total_overdue, overdue_meetings = _build_meeting_context(question, meetings)
+
+    from config.constants import CHAT_SYSTEM
+    user_msg = (
+        f"FACTS (pre-computed — use these exact numbers):\n"
+        f"- Total meetings: {len(meetings)}\n"
+        f"- Meetings with at least one overdue action: {n_overdue_mtgs}"
         + (f" (titles: {', '.join(m.get('title','Untitled') for m in overdue_meetings)})" if overdue_meetings else "") + "\n"
         f"- Total overdue action items across all meetings: {total_overdue}\n\n"
         f"Data:\n{full_context}\n\n"
