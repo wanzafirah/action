@@ -694,7 +694,7 @@ def _build_email_text(pending: dict, result: dict) -> str:
     date_str   = pending.get("meeting_date", "")
     report_by  = pending.get("updated_by", "") or "The Meeting Organizer"
     summary    = result.get("summary", "")
-    decisions  = result.get("key_decisions") or []
+    objective  = result.get("objective", "") or "Not provided"
 
     try:
         date_display = _dt.strptime(date_str, "%Y-%m-%d").strftime("%A, %d %B %Y")
@@ -708,8 +708,7 @@ def _build_email_text(pending: dict, result: dict) -> str:
         deadline = a.get("deadline", "Not stated")
         action_lines.append(f"  {i}. {text}\n     Owner: {owner} | Deadline: {deadline}")
 
-    decision_lines = "\n".join(f"  - {d}" for d in decisions) if decisions else "  None recorded."
-    actions_block  = "\n".join(action_lines) if action_lines else "  No action items recorded."
+    actions_block = "\n".join(action_lines) if action_lines else "  No action items recorded."
 
     return (
         f"Dear colleagues,\n\n"
@@ -717,8 +716,8 @@ def _build_email_text(pending: dict, result: dict) -> str:
         f"MEDIA MONITORING REPORT\n"
         f"Date: {date_display}\n\n"
         f"Meeting: {title}\n\n"
+        f"Objective:\n{objective}\n\n"
         f"Summary:\n{summary}\n\n"
-        f"Key Decisions:\n{decision_lines}\n\n"
         f"Action Items:\n{actions_block}\n\n"
         f"Regards,\n{report_by}"
     )
