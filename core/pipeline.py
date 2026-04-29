@@ -8,7 +8,6 @@ Flow:
       -> normalize into a safe result shape
 """
 from __future__ import annotations
-
 import ast
 import json
 import re
@@ -23,9 +22,7 @@ from utils.helpers import (
 )
 
 
-# ------------------------------------------------------------------
-# JSON extraction / repair
-# ------------------------------------------------------------------
+#JSON repair
 def extract_json(raw: str) -> dict:
     """Parse JSON from the LLM output, tolerating small formatting mistakes."""
     cleaned = re.sub(r"```(?:json)?", "", raw or "").strip()
@@ -48,8 +45,8 @@ def extract_json(raw: str) -> dict:
 
     repairs = [
         candidate,
-        re.sub(r",\s*([}\]])", r"\1", candidate),                           # trailing commas
-        re.sub(r'([{\s,])([A-Za-z_][\w\- ]*)(\s*:)', r'\1"\2"\3', candidate),  # bare keys
+        re.sub(r",\s*([}\]])", r"\1", candidate),                           
+        re.sub(r'([{\s,])([A-Za-z_][\w\- ]*)(\s*:)', r'\1"\2"\3', candidate),  
     ]
     for repair in repairs:
         try:
@@ -70,9 +67,7 @@ def _repair_with_ollama(raw: str) -> dict:
     return extract_json(repaired)
 
 
-# ------------------------------------------------------------------
-# Safe default result
-# ------------------------------------------------------------------
+#safe result
 def _safe_result(transcript: str, metadata: dict | None = None) -> dict:
     """Minimal valid result used when the LLM call fails entirely."""
     metadata = metadata or {}
@@ -97,9 +92,7 @@ def _safe_result(transcript: str, metadata: dict | None = None) -> dict:
     }
 
 
-# ------------------------------------------------------------------
-# Normalisation
-# ------------------------------------------------------------------
+#normalization
 def normalize_result(result: dict, transcript: str, metadata: dict | None = None) -> dict:
     """Ensure the result has every required key and consistent types."""
     safe = _safe_result(transcript, metadata)
@@ -108,7 +101,7 @@ def normalize_result(result: dict, transcript: str, metadata: dict | None = None
 
     merged = {**safe, **result}
 
-    # Nested dicts — merge key by key so missing subkeys get their defaults.
+    # merge key by key so missing subkeys get their defaults.
     merged["nlp_pipeline"] = {**safe["nlp_pipeline"], **(result.get("nlp_pipeline") or {})}
     merged["nlp_pipeline"]["named_entities"] = {
         **safe["nlp_pipeline"]["named_entities"],
@@ -164,9 +157,7 @@ def normalize_result(result: dict, transcript: str, metadata: dict | None = None
     return merged
 
 
-# ------------------------------------------------------------------
-# Public entry point
-# ------------------------------------------------------------------
+#input (meeting recap)
 def run_pipeline(transcript: str, metadata: dict | None = None) -> dict:
     """Analyse a transcript and return the normalised meeting brief."""
     compact = compact_transcript_for_prompt((transcript or "").strip(), max_chars=1500)
@@ -189,7 +180,6 @@ def run_pipeline(transcript: str, metadata: dict | None = None) -> dict:
     )
 
     try:
-        # max_tokens=900 + num_ctx=2048 keeps inference under 1 min on typical hardware
         raw = call_ollama(PIPELINE_SYSTEM, user_msg, max_tokens=900, num_ctx=2048)
         try:
             result = extract_json(raw)
@@ -213,7 +203,7 @@ def generate_followup_email(meeting: dict) -> str:
     summary    = normalize_value(meeting.get("summary"), "")
     dept       = normalize_value(meeting.get("deptName") or meeting.get("department"), "")
     report_by  = normalize_value(meeting.get("user_id") or meeting.get("updated_by"), "The Meeting Organizer")
-    decisions  = join_list(meeting.get("keyDecisions") or [], "None")
+    objective    = normalize_value(meeting.get("objective"), "")
     stakeholders = join_list(meeting.get("stakeholders") or [], "")
 
     actions = meeting.get("actions") or []
@@ -227,13 +217,14 @@ def generate_followup_email(meeting: dict) -> str:
     SYSTEM = (
         "You are an executive assistant. Write a concise professional follow-up email after a meeting. "
         "Use the exact format: start with 'Dear colleagues,', then a brief intro line, then "
-        "'MEETING RECAP', then Date, Meeting, Summary, Key Decisions, Action Items sections, "
+        "'MEETING RECAP', then Date, Meeting, Objective, Summary, Action Items sections, "
         "then 'Regards,' and the sender name. Keep it professional and concise."
     )
     user_msg = (
         f"Meeting: {title}\nDate: {date_str}\nDepartment: {dept}\n"
         f"Attendees/Stakeholders: {stakeholders}\n"
-        f"Summary: {summary}\nKey Decisions: {decisions}\n"
+        f"Objective: {objective}\n"
+        f"Summary: {summary}\n"
         f"Pending Action Items:\n" + ("\n".join(action_lines) or "None") + f"\n"
         f"Report by / Sender: {report_by}\n\n"
         "Write the follow-up email now."
