@@ -30,9 +30,7 @@ def render() -> None:
     with hdr_left:
         st.markdown(
             "<div style='font-size:1.5rem;font-weight:800;color:var(--text);"
-            "line-height:1.2;margin-bottom:0.1rem'>Dashboard</div>"
-            "<div style='font-size:0.83rem;color:var(--text-soft)'>"
-            "Overview of meetings, actions and deadlines</div>",
+            "line-height:1.2;margin-bottom:0.1rem'>Dashboard</div>",
             unsafe_allow_html=True,
         )
     with hdr_right:
