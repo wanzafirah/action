@@ -239,7 +239,7 @@ def run_pipeline(transcript: str, metadata: dict | None = None) -> dict:
     )
 
     try:
-        raw = call_ollama(PIPELINE_SYSTEM, user_msg, max_tokens=450, num_ctx=3072, temperature=0.05)
+        raw = call_ollama(PIPELINE_SYSTEM, user_msg, max_tokens=450, num_ctx=3072, temperature=0.1)
         try:
             result = extract_json(raw)
         except Exception:
