@@ -1,20 +1,101 @@
-"""Calendar widget — visual HTML grid + interactive date detail panel.
+"""Calendar widget — interactive button grid.
 
-Clicking a blue (meeting) or yellow (deadline) day button below the calendar
-reveals the meetings held or tasks due on that date.
+Each day is a real Streamlit button. Clicking a highlighted date
+(blue = meeting held, yellow = deadline) shows the detail panel inline.
 """
 from datetime import date
+import calendar as _cal
 
 import streamlit as st
 
 from utils.formatters import (
-    build_calendar_html,
     get_actions_due_on_date,
     get_meeting_conducted_days,
     get_meetings_on_date,
     get_pending_deadline_days,
 )
-from utils.helpers import normalize_status, normalize_value, pretty_deadline
+# build_calendar_html no longer used — calendar is now a native Streamlit button grid
+from utils.helpers import normalize_status, normalize_value
+
+
+_CSS = """
+<style>
+/* ── Calendar grid wrapper ───────────────────────────── */
+.cal-wrap { margin-bottom: 0.25rem; }
+
+/* Remove ALL padding/gap between calendar columns */
+.cal-wrap div[data-testid="stHorizontalBlock"] {
+    gap: 3px !important;
+}
+.cal-wrap div[data-testid="stColumn"] {
+    padding: 0 !important;
+    min-width: 0 !important;
+}
+
+/* ── Every day button ────────────────────────────────── */
+.cal-wrap button[kind="secondary"],
+.cal-wrap button[kind="primary"] {
+    width: 100% !important;
+    padding: 0.3rem 0.1rem !important;
+    font-size: 0.82rem !important;
+    font-weight: 600 !important;
+    min-height: 2.2rem !important;
+    border-radius: 8px !important;
+    line-height: 1 !important;
+}
+
+/* Empty / normal day — invisible */
+.cal-wrap .cal-empty button,
+.cal-wrap .cal-normal button {
+    background: transparent !important;
+    border: 1px solid #e2e8f0 !important;
+    color: #374151 !important;
+    box-shadow: none !important;
+}
+.cal-wrap .cal-empty button { visibility: hidden !important; }
+
+/* Today — ring */
+.cal-wrap .cal-today button {
+    background: transparent !important;
+    border: 2px solid #6366f1 !important;
+    color: #6366f1 !important;
+    font-weight: 800 !important;
+}
+
+/* Meeting held — blue fill */
+.cal-wrap .cal-meeting button {
+    background: #dbeafe !important;
+    border: 2px solid #3b82f6 !important;
+    color: #1e40af !important;
+    font-weight: 800 !important;
+}
+
+/* Deadline — yellow fill */
+.cal-wrap .cal-deadline button {
+    background: #fef3c7 !important;
+    border: 2px solid #f59e0b !important;
+    color: #92400e !important;
+    font-weight: 800 !important;
+}
+
+/* Both meeting + deadline */
+.cal-wrap .cal-both button {
+    background: linear-gradient(135deg, #dbeafe 50%, #fef3c7 50%) !important;
+    border: 2px solid #6366f1 !important;
+    color: #1e3a8a !important;
+    font-weight: 800 !important;
+}
+
+/* Selected — dark fill */
+.cal-wrap .cal-selected button,
+.cal-wrap .cal-selected button[kind="primary"] {
+    background: #1e3a5f !important;
+    border: 2px solid #1e3a5f !important;
+    color: #ffffff !important;
+    font-weight: 800 !important;
+}
+</style>
+"""
 
 
 def render(meetings: list) -> None:
@@ -22,16 +103,16 @@ def render(meetings: list) -> None:
     year  = st.session_state.get("calendar_year",  today.year)
     month = st.session_state.get("calendar_month", today.month)
 
-    # ── Month navigation ─────────────────────────────────────────────
+    # ── Month navigation ──────────────────────────────────────────
     col_prev, col_title, col_next = st.columns([1, 3, 1])
     with col_prev:
         if st.button("◀", key="cal_prev", use_container_width=True):
             month -= 1
             if month < 1:
                 month, year = 12, year - 1
-            st.session_state.calendar_month  = month
-            st.session_state.calendar_year   = year
-            st.session_state.cal_selected    = None   # clear selection on nav
+            st.session_state.calendar_month = month
+            st.session_state.calendar_year  = year
+            st.session_state.cal_selected   = None
             st.rerun()
     with col_title:
         st.markdown(
@@ -44,64 +125,90 @@ def render(meetings: list) -> None:
             month += 1
             if month > 12:
                 month, year = 1, year + 1
-            st.session_state.calendar_month  = month
-            st.session_state.calendar_year   = year
-            st.session_state.cal_selected    = None
+            st.session_state.calendar_month = month
+            st.session_state.calendar_year  = year
+            st.session_state.cal_selected   = None
             st.rerun()
 
-    # ── Visual HTML grid (blue = meeting held, yellow = deadline) ────
-    st.markdown(build_calendar_html(meetings, year, month), unsafe_allow_html=True)
-
-    # ── Interactive day buttons + detail (collapsed by default) ────────
+    # Pre-compute highlighted days
     pending   = get_pending_deadline_days(meetings, year, month)
     conducted = get_meeting_conducted_days(meetings, year, month)
-    all_highlighted = sorted((conducted | pending))
+    selected  = st.session_state.get("cal_selected")
 
-    if not all_highlighted:
-        return
+    st.markdown(_CSS, unsafe_allow_html=True)
 
-    # Compact button CSS — square, tight padding so pure numbers never wrap
+    # ── Day-of-week header ────────────────────────────────────────
+    day_labels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    hcols = st.columns(7)
+    for col, lbl in zip(hcols, day_labels):
+        col.markdown(
+            f"<div style='text-align:center;font-size:0.72rem;font-weight:700;"
+            f"color:#6e7f96;padding:0.2rem 0'>{lbl}</div>",
+            unsafe_allow_html=True,
+        )
+
+    # ── Week rows ─────────────────────────────────────────────────
+    cal = _cal.Calendar(firstweekday=0)
+    weeks = cal.monthdayscalendar(year, month)
+
+    st.markdown("<div class='cal-wrap'>", unsafe_allow_html=True)
+    for week in weeks:
+        wcols = st.columns(7)
+        for col, day_num in zip(wcols, week):
+            if day_num == 0:
+                css_class = "cal-empty"
+                label = " "
+            else:
+                date_iso = date(year, month, day_num).isoformat()
+                is_m  = day_num in conducted
+                is_d  = day_num in pending
+                is_today = (day_num == today.day and month == today.month and year == today.year)
+                is_sel = (selected == date_iso)
+
+                if is_sel:
+                    css_class = "cal-selected"
+                elif is_m and is_d:
+                    css_class = "cal-both"
+                elif is_m:
+                    css_class = "cal-meeting"
+                elif is_d:
+                    css_class = "cal-deadline"
+                elif is_today:
+                    css_class = "cal-today"
+                else:
+                    css_class = "cal-normal"
+
+                label = str(day_num)
+
+            with col:
+                st.markdown(f"<div class='{css_class}'>", unsafe_allow_html=True)
+                clicked = st.button(
+                    label,
+                    key=f"cal_day_{year}_{month}_{day_num}",
+                    use_container_width=True,
+                )
+                st.markdown("</div>", unsafe_allow_html=True)
+
+                if clicked and day_num != 0:
+                    date_iso = date(year, month, day_num).isoformat()
+                    # Toggle: click again to deselect
+                    st.session_state.cal_selected = None if selected == date_iso else date_iso
+                    st.rerun()
+
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    # ── Legend ────────────────────────────────────────────────────
     st.markdown(
-        "<style>"
-        "div[data-testid='stHorizontalBlock'] > div[data-testid='stColumn'] button {"
-        "  white-space: nowrap !important;"
-        "  padding: 0.25rem 0.15rem !important;"
-        "  font-size: 0.85rem !important;"
-        "  min-height: 2rem !important;"
-        "  line-height: 1 !important;"
-        "  font-weight: 700 !important;"
-        "}"
-        "</style>",
+        "<div style='display:flex;gap:1rem;margin-top:0.4rem;font-size:0.74rem;color:#6e7f96'>"
+        "<span><span style='display:inline-block;width:10px;height:10px;border-radius:3px;"
+        "background:#dbeafe;border:1px solid #3b82f6;margin-right:3px'></span>Meeting held</span>"
+        "<span><span style='display:inline-block;width:10px;height:10px;border-radius:3px;"
+        "background:#fef3c7;border:1px solid #f59e0b;margin-right:3px'></span>Action deadline</span>"
+        "</div>",
         unsafe_allow_html=True,
     )
 
-    MAX_COLS = 7
-    rows = [all_highlighted[i:i+MAX_COLS] for i in range(0, len(all_highlighted), MAX_COLS)]
-
-    for row in rows:
-        cols = st.columns(MAX_COLS)
-        for i, day_num in enumerate(row):
-            is_m = day_num in conducted
-            is_d = day_num in pending
-            # Just the day number — type indicated by button colour (primary = meeting, secondary = deadline)
-            label = str(day_num)
-
-            date_iso = date(year, month, day_num).isoformat()
-            selected = st.session_state.get("cal_selected")
-
-            if cols[i].button(
-                label,
-                key=f"cal_btn_{year}_{month}_{day_num}",
-                use_container_width=True,
-                type="primary" if selected == date_iso else "secondary",
-            ):
-                if selected == date_iso:
-                    st.session_state.cal_selected = None
-                else:
-                    st.session_state.cal_selected = date_iso
-                st.rerun()
-
-    # Detail panel — only shows after a date is pressed
+    # ── Detail panel ──────────────────────────────────────────────
     selected = st.session_state.get("cal_selected")
     if not selected:
         return
@@ -109,6 +216,9 @@ def render(meetings: list) -> None:
     sel_day = int(selected.split("-")[2])
     is_m = sel_day in conducted
     is_d = sel_day in pending
+
+    if not (is_m or is_d):
+        return
 
     st.markdown(
         f"<div style='margin-top:0.7rem;font-weight:800;font-size:0.95rem;"
