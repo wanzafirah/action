@@ -141,7 +141,7 @@ def _render_meeting(meeting: dict) -> None:
             with tab_t:
                 if orig_t:
                     st.text_area(
-                        "Raw Whisper output (before any edits)",
+                        "Original transcript",
                         value=orig_t,
                         height=220,
                         disabled=True,
