@@ -60,11 +60,6 @@ def render(meetings: list) -> None:
     if not all_highlighted:
         return
 
-    # ── Checkbox toggle — state persists across reruns unlike st.expander ──
-    show = st.checkbox("View date details", key="cal_show_details")
-    if not show:
-        return
-
     # Compact button CSS — square, tight padding so pure numbers never wrap
     st.markdown(
         "<style>"
