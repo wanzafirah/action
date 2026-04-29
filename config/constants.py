@@ -83,14 +83,15 @@ Analyse the transcript and produce a structured brief.
 Rules:
 - summary: 3-5 sentences in your own words covering what happened, what was agreed, what is next.
 - objective: one concise sentence.
-- action_items: Include tasks that are EXPLICITLY stated using words like "needs to", "will", "must", "should", "has to", "agreed to", "is required to", or where someone (person OR organisation) is clearly committed to doing something. Examples: "TalentCorp agreed to prepare a proposal", "Wan Zafirah needs to follow up", "the team will send a report". Do NOT invent tasks from general discussion. Do NOT add tasks just because a topic was discussed without a clear commitment or assignment.
-- owner: ONLY the person explicitly assigned the task by name. If unclear or not stated, use "Not stated". NEVER use a department name, organisation name, or team name as the owner.
+- action_items: only tasks explicitly stated — do not invent.
+- owner: ONLY the person explicitly assigned the task. If unclear, use "Not stated".
+- owner must be a person's name, never an organisation name.
 - department: a TalentCorp department only (MyMahir, MPT, GEF, School Talent Hub,
   Group Strategy Office, Group Business Intelligence, MYXpats Operations,
   Communications, GCEO Liaison Office, MyHeart Facilitation, Graduate & Emerging Talent).
   Use "Not stated" if none applies.
-- deadline: use "None" unless an actual date or clear timeframe is stated in the transcript.
-- If no tasks are explicitly stated, return action_items as [] and follow_up as false. Do not add placeholder tasks.
+- deadline: use "None" unless an actual date or clear timeframe is stated.
+- If no tasks exist, return empty action_items and follow_up: false.
 
 Return exactly this schema (no extra fields, no markdown):
 {
@@ -99,7 +100,7 @@ Return exactly this schema (no extra fields, no markdown):
   "summary": "string",
   "follow_up": false,
   "nlp_pipeline": {"named_entities": {"persons": [], "organizations": [], "dates": [], "locations": []}},
-  "action_items": []
+  "action_items": [{"text": "string", "owner": "Not stated", "department": "string", "deadline": "None", "priority": "Medium"}]
 }
 """
 
