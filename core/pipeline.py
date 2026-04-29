@@ -12,6 +12,36 @@ import ast
 import json
 import re
 
+
+# ------------------------------------------------------------------
+# Action sentence cleaner
+# ------------------------------------------------------------------
+_PREAMBLES = re.compile(
+    r"^(the meeting concluded with\s+|both (parties|sides|teams?)\s+(agreed|decided|committed)\s+(that\s+)?|"
+    r"it was (agreed|decided|noted)\s+(that\s+)?|during the (meeting|discussion|session),?\s+|"
+    r"(additionally|furthermore|also|finally|in conclusion),?\s+|"
+    r"the (session|discussion|meeting) ended with\s+|"
+    r"(the team|the group|all parties)\s+(agreed|decided|committed)\s+(that\s+)?)",
+    re.IGNORECASE,
+)
+
+def _clean_action_text(text: str) -> str:
+    """Convert a raw transcript sentence into a concise action statement.
+
+    e.g. "The meeting concluded with TalentCorp agreeing to prepare a proposal."
+         → "TalentCorp to prepare a proposal"
+    """
+    t = text.strip()
+    # Strip leading preamble phrases
+    t = _PREAMBLES.sub("", t).strip()
+    # "X agreeing to Y"  → "X to Y"
+    t = re.sub(r'\b(\w[\w\s]{1,30}?)\s+agreeing to\b', r'\1 to', t, flags=re.IGNORECASE)
+    # "X committing to Y" → "X to Y"
+    t = re.sub(r'\b(\w[\w\s]{1,30}?)\s+committing to\b', r'\1 to', t, flags=re.IGNORECASE)
+    # Remove trailing punctuation and re-capitalise
+    t = t.rstrip('.').strip()
+    return t[0].upper() + t[1:] if t else text.strip()
+
 from config.constants import JSON_REPAIR_SYSTEM, PIPELINE_SYSTEM
 from core.services import call_ollama
 from utils.helpers import (
@@ -205,7 +235,7 @@ def normalize_result(result: dict, transcript: str, metadata: dict | None = None
             sent_lower = sent.lower().strip()
             if any(signal in sent_lower for signal in _ACTION_SIGNALS) and len(sent.strip()) > 15:
                 cleaned_actions.append({
-                    "text": sent.strip(),
+                    "text": _clean_action_text(sent),
                     "owner": "Not stated",
                     "department": "Not stated",
                     "company": "Not stated",
