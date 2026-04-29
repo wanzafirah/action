@@ -83,15 +83,14 @@ Analyse the transcript and produce a structured brief.
 Rules:
 - summary: 3-5 sentences in your own words covering what happened, what was agreed, what is next.
 - objective: one concise sentence.
-- action_items: only tasks explicitly stated — do not invent.
-- owner: ONLY the person explicitly assigned the task. If unclear, use "Not stated".
-- owner must be a person's name, never an organisation name.
+- action_items: ONLY include tasks that are EXPLICITLY and CLEARLY stated in the transcript as something someone must do. Do NOT invent, suggest, or infer tasks. Do NOT add tasks just because a topic was discussed. If no one was explicitly asked to do something, action_items MUST be an empty list [].
+- owner: ONLY the person explicitly assigned the task by name. If unclear or not stated, use "Not stated". NEVER use a department name, organisation name, or team name as the owner.
 - department: a TalentCorp department only (MyMahir, MPT, GEF, School Talent Hub,
   Group Strategy Office, Group Business Intelligence, MYXpats Operations,
   Communications, GCEO Liaison Office, MyHeart Facilitation, Graduate & Emerging Talent).
   Use "Not stated" if none applies.
-- deadline: use "None" unless an actual date or clear timeframe is stated.
-- If no tasks exist, return empty action_items and follow_up: false.
+- deadline: use "None" unless an actual date or clear timeframe is stated in the transcript.
+- If no tasks are explicitly stated, return action_items as [] and follow_up as false. Do not add placeholder tasks.
 
 Return exactly this schema (no extra fields, no markdown):
 {
@@ -100,7 +99,7 @@ Return exactly this schema (no extra fields, no markdown):
   "summary": "string",
   "follow_up": false,
   "nlp_pipeline": {"named_entities": {"persons": [], "organizations": [], "dates": [], "locations": []}},
-  "action_items": [{"text": "string", "owner": "Not stated", "department": "string", "deadline": "None", "priority": "Medium"}]
+  "action_items": []
 }
 """
 
