@@ -592,8 +592,8 @@ def render() -> None:
                     "external_stakeholders": list(st.session_state.get("cap_ext_stakeholders", [])),
                     "updated_by": updated_by,
                     "transcript": transcript,
-                    # originals — snapshot before user edits
-                    "transcript_original": st.session_state.get("cap_transcript_original", ""),
+                    # originals — Whisper raw output if transcribed, otherwise the typed transcript
+                    "transcript_original": st.session_state.get("cap_transcript_original", "") or transcript,
                     "recap_original": _json.dumps(result, ensure_ascii=False),
                     "category": category,
                 }
