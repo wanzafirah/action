@@ -135,42 +135,16 @@ def _render_meeting(meeting: dict) -> None:
     # Fall back to the regular transcript if transcript_original column doesn't exist yet
     orig_t = meeting.get("transcript_original", "") or meeting.get("transcript", "")
     orig_r = meeting.get("recap_original", "")
-    if orig_t or orig_r:
+    if orig_t:
         with st.expander("View original content", expanded=False):
-            tab_t, tab_r = st.tabs(["Original Transcript", "Original AI Output"])
             m_id = normalize_value(meeting.get("id") or meeting.get("activityId"), "x")
-            with tab_t:
-                if orig_t:
-                    st.text_area(
-                        "Original transcript",
-                        value=orig_t,
-                        height=220,
-                        disabled=True,
-                        key=f"orig_t_{m_id}",
-                    )
-                else:
-                    st.caption("No original transcript saved (meeting was entered manually).")
-            with tab_r:
-                if orig_r:
-                    import json as _json
-                    try:
-                        r = _json.loads(orig_r)
-                        st.markdown(f"**Original Summary:** {r.get('summary','')}")
-                        st.markdown(f"**Original Objective:** {r.get('objective','')}")
-                        orig_actions = r.get("action_items", [])
-                        if orig_actions:
-                            st.markdown("**Original Action Items:**")
-                            for a in orig_actions:
-                                st.markdown(
-                                    f"- {a.get('text','Untitled')} | "
-                                    f"Owner: {a.get('owner','Not stated')} | "
-                                    f"Deadline: {a.get('deadline','None')}"
-                                )
-                    except Exception:
-                        st.text_area("Original AI output", value=orig_r[:2000], height=220,
-                                     disabled=True, key=f"orig_r_{m_id}")
-                else:
-                    st.caption("No original AI output saved.")
+            st.text_area(
+                "Original transcript",
+                value=orig_t,
+                height=220,
+                disabled=True,
+                key=f"orig_t_{m_id}",
+            )
 
     # ── Smart Follow-Up Email button ─────────────────────────────────
     meeting_id = normalize_value(meeting.get("id") or meeting.get("activityId"), "unknown")
