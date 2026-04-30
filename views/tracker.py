@@ -1,9 +1,18 @@
-"""Action Tracker page: browse saved meetings and edit their action items."""
+"""Action Tracker page: folder-based meeting organisation with inline action editing."""
 import streamlit as st
 
 from core.database import save_meeting
 from ui.components import action_card, kpi_card
 from utils.helpers import days_left, normalize_status, normalize_value
+from utils.folder_db import (
+    get_folders,
+    create_folder,
+    delete_folder,
+    rename_folder,
+    add_meeting_to_folder,
+    remove_meeting_from_folder,
+    get_all_assigned_ids,
+)
 
 
 STATUS_FILTERS = ["All", "Pending", "In Progress", "Done", "Overdue"]
@@ -13,27 +22,262 @@ def render() -> None:
     meetings = st.session_state.get("meetings", [])
 
     st.markdown("## Action Tracker")
-    st.caption("Update statuses and deadlines across every saved meeting.")
+    st.caption("Organise meetings into folders and track action items.")
 
-    # Global KPIs
+    # ── Global KPIs ──────────────────────────────────────────────────
     all_actions = [a for m in meetings for a in (m.get("actions") or [])]
-    total = len(all_actions)
-    done = sum(1 for a in all_actions if normalize_status(a) == "Done")
-    pending = sum(1 for a in all_actions if normalize_status(a) in {"Pending", "In Progress", "Overdue"})
-    c1, c2, c3 = st.columns(3)
-    with c1:
-        kpi_card("Total actions", str(total), "Across all meetings", "#1d4ed8")
-    with c2:
-        kpi_card("Pending", str(pending), "Pending / In Progress / Overdue", "#b45309")
-    with c3:
-        kpi_card("Completed", str(done), "Marked Done", "#166534")
+    total  = len(all_actions)
+    done   = sum(1 for a in all_actions if normalize_status(a) == "Done")
+    pending = sum(1 for a in all_actions if normalize_status(a) in {"Pending", "In Progress"})
+    overdue = sum(1 for a in all_actions if normalize_status(a) == "Overdue")
 
-    # Filters
+    c1, c2, c3, c4 = st.columns(4)
+    with c1:
+        kpi_card("Total actions", str(total),   "Across all meetings",      "#1d4ed8")
+    with c2:
+        kpi_card("Pending",       str(pending), "Pending / In Progress",    "#b45309")
+    with c3:
+        kpi_card("Overdue",       str(overdue), "Past deadline",            "#991b1b")
+    with c4:
+        kpi_card("Completed",     str(done),    "Marked Done",              "#166534")
+
+    # ── View selector ────────────────────────────────────────────────
+    view = st.session_state.get("tracker_view", "folders")
+
+    tab_folders, tab_all = st.tabs(["Folders", "All Meetings"])
+
+    with tab_folders:
+        _render_folders_view(meetings)
+
+    with tab_all:
+        _render_all_meetings_view(meetings)
+
+
+# ──────────────────────────────────────────────────────────────────────
+# FOLDERS VIEW
+# ──────────────────────────────────────────────────────────────────────
+def _render_folders_view(meetings: list) -> None:
+    """Top level: list of folders. Clicking one drills into its meetings."""
+    folders = get_folders()
+    meeting_lookup = {
+        normalize_value(m.get("id") or m.get("activityId"), ""): m
+        for m in meetings
+        if normalize_value(m.get("id") or m.get("activityId"), "")
+    }
+
+    # ── Create new folder ────────────────────────────────────────────
+    with st.expander("Create new folder", expanded=False):
+        col_name, col_btn = st.columns([3, 1])
+        with col_name:
+            new_folder_name = st.text_input(
+                "Folder name",
+                key="new_folder_name",
+                placeholder="e.g. 1MDB Weekly, UPNM Collaboration",
+                label_visibility="collapsed",
+            )
+        with col_btn:
+            st.markdown("<div style='height:0.35rem'></div>", unsafe_allow_html=True)
+            if st.button("Create", key="btn_create_folder", type="primary", use_container_width=True):
+                if new_folder_name.strip():
+                    if create_folder(new_folder_name.strip()):
+                        st.success(f"Folder '{new_folder_name.strip()}' created.")
+                        st.rerun()
+                    else:
+                        st.warning("A folder with that name already exists.")
+                else:
+                    st.warning("Please enter a folder name.")
+
+    if not folders and not meetings:
+        st.info("No folders yet. Create one above to start organising your meetings.")
+        return
+
+    # ── Folder cards ─────────────────────────────────────────────────
+    for folder_name, meeting_ids in folders.items():
+        folder_meetings = [meeting_lookup[mid] for mid in meeting_ids if mid in meeting_lookup]
+
+        # Badge counts
+        n_overdue = sum(
+            1 for m in folder_meetings
+            for a in (m.get("actions") or [])
+            if normalize_status(a) == "Overdue"
+        )
+        n_pending = sum(
+            1 for m in folder_meetings
+            for a in (m.get("actions") or [])
+            if normalize_status(a) in ("Pending", "In Progress")
+        )
+        badge_parts = []
+        if n_overdue:
+            badge_parts.append(
+                f"<span style='background:#fee2e2;color:#991b1b;padding:0.1rem 0.45rem;"
+                f"border-radius:999px;font-size:0.72rem;font-weight:700'>{n_overdue} overdue</span>"
+            )
+        if n_pending:
+            badge_parts.append(
+                f"<span style='background:#fef3c7;color:#92400e;padding:0.1rem 0.45rem;"
+                f"border-radius:999px;font-size:0.72rem;font-weight:700'>{n_pending} pending</span>"
+            )
+        badges_html = " ".join(badge_parts)
+        count_label = f"{len(folder_meetings)} meeting{'s' if len(folder_meetings) != 1 else ''}"
+
+        st.markdown(
+            f"<div style='background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;"
+            f"padding:0.65rem 0.9rem;margin-bottom:0.1rem;display:flex;"
+            f"align-items:center;justify-content:space-between'>"
+            f"<div>"
+            f"<span style='font-weight:700;color:#0f172a;font-size:0.95rem'>{folder_name}</span>"
+            f"<span style='color:#94a3b8;font-size:0.8rem;margin-left:0.6rem'>{count_label}</span>"
+            f"</div>"
+            f"<div style='display:flex;gap:0.4rem;align-items:center'>{badges_html}</div>"
+            f"</div>",
+            unsafe_allow_html=True,
+        )
+
+        open_key = f"folder_open_{folder_name}"
+        btn_label = "Close" if st.session_state.get(open_key) else "Open"
+        col_open, col_del = st.columns([5, 1])
+        with col_open:
+            if st.button(btn_label, key=f"btn_open_{folder_name}", use_container_width=True):
+                st.session_state[open_key] = not st.session_state.get(open_key, False)
+                st.rerun()
+        with col_del:
+            if st.button("Delete", key=f"btn_del_{folder_name}", use_container_width=True):
+                delete_folder(folder_name)
+                st.session_state.pop(open_key, None)
+                st.rerun()
+
+        if st.session_state.get(open_key):
+            _render_folder_content(folder_name, folder_meetings, meetings, meeting_lookup)
+
+        st.markdown("<div style='height:0.3rem'></div>", unsafe_allow_html=True)
+
+    # ── Ungrouped meetings ───────────────────────────────────────────
+    assigned_ids = get_all_assigned_ids()
+    ungrouped = [
+        m for m in meetings
+        if normalize_value(m.get("id") or m.get("activityId"), "") not in assigned_ids
+    ]
+    if ungrouped:
+        st.markdown(
+            "<div style='font-size:0.8rem;font-weight:700;color:#94a3b8;"
+            "text-transform:uppercase;letter-spacing:0.05em;margin:1rem 0 0.4rem'>Ungrouped</div>",
+            unsafe_allow_html=True,
+        )
+        ungrouped_open_key = "ungrouped_open"
+        if st.button(
+            "Close ungrouped" if st.session_state.get(ungrouped_open_key) else f"Show {len(ungrouped)} ungrouped meetings",
+            key="btn_ungrouped",
+        ):
+            st.session_state[ungrouped_open_key] = not st.session_state.get(ungrouped_open_key, False)
+            st.rerun()
+
+        if st.session_state.get(ungrouped_open_key):
+            _render_folder_content(None, ungrouped, meetings, {
+                normalize_value(m.get("id") or m.get("activityId"), ""): m for m in meetings
+            })
+
+
+def _render_folder_content(
+    folder_name: str | None,
+    folder_meetings: list,
+    all_meetings: list,
+    meeting_lookup: dict,
+) -> None:
+    """Render meetings inside an open folder, plus controls to add/remove."""
+    st.markdown(
+        "<div style='border-left:3px solid #bfdbfe;padding-left:0.75rem;margin:0.4rem 0 0.6rem'>",
+        unsafe_allow_html=True,
+    )
+
+    # ── Add meeting to folder ────────────────────────────────────────
+    if folder_name is not None:
+        assigned_ids = {normalize_value(m.get("id") or m.get("activityId"), "") for m in folder_meetings}
+        available = [
+            m for m in all_meetings
+            if normalize_value(m.get("id") or m.get("activityId"), "") not in assigned_ids
+        ]
+        if available:
+            with st.expander("+ Add meeting to this folder", expanded=False):
+                opts = {
+                    f"{normalize_value(m.get('title'), 'Untitled')}  ·  {normalize_value(m.get('date'), '')}": m
+                    for m in sorted(available, key=lambda m: normalize_value(m.get("date"), ""), reverse=True)
+                }
+                selected_label = st.selectbox(
+                    "Select meeting",
+                    list(opts.keys()),
+                    key=f"add_mtg_sel_{folder_name}",
+                    label_visibility="collapsed",
+                )
+                if st.button("Add to folder", key=f"btn_add_mtg_{folder_name}", type="primary"):
+                    selected_m = opts[selected_label]
+                    mid = normalize_value(selected_m.get("id") or selected_m.get("activityId"), "")
+                    if mid:
+                        add_meeting_to_folder(folder_name, mid)
+                        st.rerun()
+
+        # New meeting shortcut
+        if st.button("New meeting in this folder", key=f"btn_new_mtg_{folder_name}"):
+            st.session_state["capture_folder"] = folder_name
+            st.session_state.current_page = "Capture"
+            st.rerun()
+
+    # ── Meeting list ─────────────────────────────────────────────────
+    if not folder_meetings:
+        st.caption("No meetings in this folder yet.")
+    else:
+        folder_meetings_sorted = sorted(
+            folder_meetings,
+            key=lambda m: normalize_value(m.get("date"), ""),
+            reverse=True,
+        )
+        for meeting in folder_meetings_sorted:
+            _render_meeting_expander(meeting, folder_name)
+
+    st.markdown("</div>", unsafe_allow_html=True)
+
+
+def _render_meeting_expander(meeting: dict, folder_name: str | None) -> None:
+    """Single meeting row inside a folder."""
+    title   = normalize_value(meeting.get("title"), "Untitled")
+    m_date  = normalize_value(meeting.get("date"), "no date")
+    actions = meeting.get("actions") or []
+    meeting_id = normalize_value(meeting.get("id") or meeting.get("activityId"), "")
+
+    n_overdue = sum(1 for a in actions if normalize_status(a) == "Overdue")
+    n_pending = sum(1 for a in actions if normalize_status(a) in ("Pending", "In Progress"))
+    min_dl    = None
+    for a in actions:
+        dl = days_left(normalize_value(a.get("deadline"), ""))
+        if dl is not None and normalize_status(a) not in ("Done", "Cancelled"):
+            min_dl = dl if min_dl is None else min(min_dl, dl)
+
+    if n_overdue > 0:
+        badge = f"  [{n_overdue} overdue]"
+    elif min_dl is not None and min_dl <= 3:
+        badge = f"  [due in {min_dl}d]"
+    elif n_pending > 0:
+        badge = f"  [{n_pending} pending]"
+    else:
+        badge = ""
+
+    with st.expander(f"{title}  ·  {m_date}{badge}", expanded=False):
+        # Remove from folder button
+        if folder_name is not None and meeting_id:
+            if st.button("Remove from folder", key=f"btn_rm_{folder_name}_{meeting_id}"):
+                remove_meeting_from_folder(folder_name, meeting_id)
+                st.rerun()
+        _render_meeting(meeting)
+
+
+# ──────────────────────────────────────────────────────────────────────
+# ALL MEETINGS VIEW (original flat list)
+# ──────────────────────────────────────────────────────────────────────
+def _render_all_meetings_view(meetings: list) -> None:
     col_search, col_status = st.columns([2, 1])
     with col_search:
-        search = st.text_input("Search meetings", placeholder="Title, department, stakeholder…")
+        search = st.text_input("Search meetings", placeholder="Title, department, stakeholder…", key="tracker_search_all")
     with col_status:
-        status_filter = st.selectbox("Status", STATUS_FILTERS, key="tracker_status")
+        status_filter = st.selectbox("Status", STATUS_FILTERS, key="tracker_status_all")
 
     filtered = _filter_meetings(meetings, search, status_filter)
     if not filtered:
@@ -47,7 +291,6 @@ def render() -> None:
         m_date  = normalize_value(meeting.get("date"), "no date")
         actions = meeting.get("actions") or []
 
-        # Build deadline summary for the expander label
         n_overdue = sum(1 for a in actions if normalize_status(a) == "Overdue")
         n_pending = sum(1 for a in actions if normalize_status(a) in ("Pending", "In Progress"))
         min_dl    = None
@@ -69,6 +312,9 @@ def render() -> None:
             _render_meeting(meeting)
 
 
+# ──────────────────────────────────────────────────────────────────────
+# SHARED HELPERS
+# ──────────────────────────────────────────────────────────────────────
 def _filter_meetings(meetings: list, search: str, status_filter: str) -> list:
     out = []
     needle = search.strip().lower()
@@ -87,7 +333,6 @@ def _filter_meetings(meetings: list, search: str, status_filter: str) -> list:
 
 
 def _build_followup_email(meeting: dict) -> str:
-    """Format the saved meeting data as a copy-paste follow-up email (no AI call)."""
     from datetime import datetime as _dt
     title      = normalize_value(meeting.get("title"), "Meeting")
     date_str   = normalize_value(meeting.get("date"), "")
@@ -131,10 +376,7 @@ def _render_meeting(meeting: dict) -> None:
         f"**Department:** {normalize_value(meeting.get('deptName') or meeting.get('department'), 'Unassigned')}"
     )
 
-    # ── Original content comparison ──────────────────────────────────
-    # Fall back to the regular transcript if transcript_original column doesn't exist yet
     orig_t = meeting.get("transcript_original", "") or meeting.get("transcript", "")
-    orig_r = meeting.get("recap_original", "")
     if orig_t:
         with st.expander("View original content", expanded=False):
             m_id = normalize_value(meeting.get("id") or meeting.get("activityId"), "x")
@@ -146,12 +388,11 @@ def _render_meeting(meeting: dict) -> None:
                 key=f"orig_t_{m_id}",
             )
 
-    # ── Smart Follow-Up Email button ─────────────────────────────────
     meeting_id = normalize_value(meeting.get("id") or meeting.get("activityId"), "unknown")
     email_key  = f"followup_email_{meeting_id}"
     email_open = f"followup_open_{meeting_id}"
 
-    # ── Download PDF button ──────────────────────────────────────────
+    # Download PDF
     _pdf_cache_key = f"pdf_bytes_{meeting_id}"
     if _pdf_cache_key not in st.session_state:
         try:
@@ -189,6 +430,11 @@ def _render_meeting(meeting: dict) -> None:
             height=280,
             key=f"email_ta_{meeting_id}",
         )
+        import urllib.parse as _up
+        _subject = _up.quote(f"Meeting Follow-Up: {normalize_value(meeting.get('title'), 'Meeting')}")
+        _body = _up.quote(st.session_state[email_key])
+        _gmail_url = f"https://mail.google.com/mail/?view=cm&fs=1&su={_subject}&body={_body}"
+        st.link_button("Send via Gmail", _gmail_url, use_container_width=True)
 
     actions = meeting.get("actions", []) or []
     if not actions:
