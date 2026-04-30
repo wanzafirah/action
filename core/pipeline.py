@@ -381,11 +381,13 @@ def _build_meeting_context(question: str, meetings: list) -> tuple[str, int, int
             for s in ext_stk if s.get("name")
         ] if needs_stk else []
 
+        objective_short = normalize_value(m.get("objective"), "Not stated")[:200]
         blocks.append("\n".join(filter(None, [
             "--- Meeting ---",
             f"Date: {m.get('date', '')}",
             f"Title: {m.get('title', '')}",
             overdue_flag,
+            f"Objective: {objective_short}",
             f"TC Members: {join_list(m.get('stakeholders', []), 'None')}",
             (f"External: {chr(10).join(ext_lines)}" if ext_lines else ""),
             f"Summary: {summary_short}",
