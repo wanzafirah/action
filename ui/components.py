@@ -187,9 +187,9 @@ def action_card(
 
         # Parse effort tags and render as coloured pills
         _EFFORT_STYLES = {
-            "QUICK": ("Quick",  "#dcfce7", "#166534", "#bbf7d0"),
-            "SHORT": ("Short",  "#fef9c3", "#854d0e", "#fde047"),
-            "LONG":  ("Long",   "#fee2e2", "#991b1b", "#fca5a5"),
+            "<30MIN":    ("< 30 min",   "#dcfce7", "#166534", "#bbf7d0"),
+            "<1HOUR":    ("< 1 hour",   "#fef9c3", "#854d0e", "#fde047"),
+            "MULTI-DAY": ("Multi-day",  "#fee2e2", "#991b1b", "#fca5a5"),
         }
         _lines = _clean_idea.strip().splitlines()
         _rows_html = ""
@@ -198,9 +198,12 @@ def action_card(
             if not _line:
                 continue
             # Detect [TAG] at start of line
-            _tag_match = _re.match(r"^(\d+\.\s*)?\[?(QUICK|SHORT|LONG)\]?\s*", _line, _re.IGNORECASE)
+            _tag_match = _re.match(r"^(\d+\.\s*)?\[?(<30min|<1hour|multi-day)\]?\s*", _line, _re.IGNORECASE)
             if _tag_match:
-                _tag = _tag_match.group(2).upper()
+                _tag = _tag_match.group(2).upper().strip("<>").replace(" ", "-")
+                # Normalise to dict keys
+                _tag_map = {"30MIN": "<30MIN", "1HOUR": "<1HOUR", "MULTIDAY": "MULTI-DAY", "MULTI-DAY": "MULTI-DAY", "<30MIN": "<30MIN", "<1HOUR": "<1HOUR"}
+                _tag = _tag_map.get(_tag, _tag)
                 _step_text = _line[_tag_match.end():].strip()
                 _label, _bg, _fg, _border = _EFFORT_STYLES.get(_tag, ("", "#f1f5f9", "#334155", "#cbd5e1"))
                 _pill_html = (
