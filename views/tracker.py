@@ -196,30 +196,33 @@ def _render_folder_content(
             m for m in all_meetings
             if normalize_value(m.get("id") or m.get("activityId"), "") not in assigned_ids
         ]
-        if available:
-            with st.expander("+ Add meeting to this folder", expanded=False):
-                opts = {
-                    f"{normalize_value(m.get('title'), 'Untitled')}  ·  {normalize_value(m.get('date'), '')}": m
-                    for m in sorted(available, key=lambda m: normalize_value(m.get("date"), ""), reverse=True)
-                }
-                selected_label = st.selectbox(
-                    "Select meeting",
-                    list(opts.keys()),
-                    key=f"add_mtg_sel_{folder_name}",
-                    label_visibility="collapsed",
-                )
-                if st.button("Add to folder", key=f"btn_add_mtg_{folder_name}", type="primary"):
-                    selected_m = opts[selected_label]
-                    mid = normalize_value(selected_m.get("id") or selected_m.get("activityId"), "")
-                    if mid:
-                        add_meeting_to_folder(folder_name, mid)
-                        st.rerun()
-
-        # New meeting shortcut
-        if st.button("New meeting in this folder", key=f"btn_new_mtg_{folder_name}"):
-            st.session_state["capture_folder"] = folder_name
-            st.session_state.current_page = "Capture"
-            st.rerun()
+        col_sel, col_add, col_new = st.columns([4, 1, 2])
+        with col_sel:
+            opts = {
+                f"{normalize_value(m.get('title'), 'Untitled')}  ·  {normalize_value(m.get('date'), '')}": m
+                for m in sorted(available, key=lambda m: normalize_value(m.get("date"), ""), reverse=True)
+            } if available else {}
+            selected_label = st.selectbox(
+                "Add existing meeting",
+                ["— select meeting —"] + list(opts.keys()),
+                key=f"add_mtg_sel_{folder_name}",
+                label_visibility="collapsed",
+            )
+        with col_add:
+            st.markdown("<div style='height:0.35rem'></div>", unsafe_allow_html=True)
+            if st.button("Add", key=f"btn_add_mtg_{folder_name}", use_container_width=True,
+                         disabled=selected_label == "— select meeting —"):
+                selected_m = opts[selected_label]
+                mid = normalize_value(selected_m.get("id") or selected_m.get("activityId"), "")
+                if mid:
+                    add_meeting_to_folder(folder_name, mid)
+                    st.rerun()
+        with col_new:
+            st.markdown("<div style='height:0.35rem'></div>", unsafe_allow_html=True)
+            if st.button("+ New meeting", key=f"btn_new_mtg_{folder_name}", use_container_width=True):
+                st.session_state["capture_folder"] = folder_name
+                st.session_state.current_page = "Capture"
+                st.rerun()
 
     # ── Meeting list ─────────────────────────────────────────────────
     if not folder_meetings:
@@ -266,7 +269,7 @@ def _render_meeting_expander(meeting: dict, folder_name: str | None) -> None:
             if st.button("Remove from folder", key=f"btn_rm_{folder_name}_{meeting_id}"):
                 remove_meeting_from_folder(folder_name, meeting_id)
                 st.rerun()
-        _render_meeting(meeting)
+        _render_meeting(meeting, key_prefix=f"fld_{folder_name or 'ug'}_")
 
 
 # ──────────────────────────────────────────────────────────────────────
@@ -309,7 +312,7 @@ def _render_all_meetings_view(meetings: list) -> None:
             badge = ""
 
         with st.expander(f"{title}  ·  {m_date}{badge}", expanded=False):
-            _render_meeting(meeting)
+            _render_meeting(meeting, key_prefix="all_")
 
 
 # ──────────────────────────────────────────────────────────────────────
@@ -369,7 +372,7 @@ def _build_followup_email(meeting: dict) -> str:
     )
 
 
-def _render_meeting(meeting: dict) -> None:
+def _render_meeting(meeting: dict, key_prefix: str = "") -> None:
     st.markdown(f"**Summary:** {normalize_value(meeting.get('summary'), 'No summary.')}")
     st.markdown(f"**Objective:** {normalize_value(meeting.get('objective'), 'Not provided')}")
     st.markdown(
@@ -385,7 +388,7 @@ def _render_meeting(meeting: dict) -> None:
                 value=orig_t,
                 height=220,
                 disabled=True,
-                key=f"orig_t_{m_id}",
+                key=f"{key_prefix}orig_t_{m_id}",
             )
 
     meeting_id = normalize_value(meeting.get("id") or meeting.get("activityId"), "unknown")
@@ -411,10 +414,10 @@ def _render_meeting(meeting: dict) -> None:
             data=st.session_state[_pdf_cache_key],
             file_name=f"{_safe_title}.pdf",
             mime="application/pdf",
-            key=f"dl_pdf_{meeting_id}",
+            key=f"{key_prefix}dl_pdf_{meeting_id}",
         )
 
-    if st.button("Copy Follow-Up Email", key=f"btn_email_{meeting_id}"):
+    if st.button("Copy Follow-Up Email", key=f"{key_prefix}btn_email_{meeting_id}"):
         if st.session_state.get(email_open):
             st.session_state.pop(email_key, None)
             st.session_state[email_open] = False
@@ -428,7 +431,7 @@ def _render_meeting(meeting: dict) -> None:
             "Follow-up email draft (copy to send)",
             value=st.session_state[email_key],
             height=280,
-            key=f"email_ta_{meeting_id}",
+            key=f"{key_prefix}email_ta_{meeting_id}",
         )
         import urllib.parse as _up
         _subject = _up.quote(f"Meeting Follow-Up: {normalize_value(meeting.get('title'), 'Meeting')}")
