@@ -283,8 +283,10 @@ def get_action_idea(action: dict) -> str:
     SYSTEM = (
         "You are a senior project manager. Given an unfinished action item, "
         "provide exactly 3-4 next steps. Each step must be ONE short sentence. "
-        "Start each step with an effort tag: [QUICK] for under 30 minutes, "
-        "[SHORT] for 30-60 minutes, [LONG] for over 1 hour. "
+        "Start each step with a time tag: [<30min] for under 30 minutes, "
+        "[<1hour] for 30-60 minutes, [Multi-day] for over 1 hour. "
+        "IMPORTANT: The owner is the person doing the task — do NOT suggest they contact or meet themselves. "
+        "Write steps as instructions for the owner to follow. "
         "Format as a numbered list. No sub-bullets, no long explanations."
     )
     text     = normalize_value(action.get("text"), "Unknown task")
@@ -295,9 +297,9 @@ def get_action_idea(action: dict) -> str:
 
     user_msg = (
         f"Action item: {text}\n"
-        f"Owner: {owner} | Department: {dept}\n"
+        f"Owner (the person doing this task): {owner} | Department: {dept}\n"
         f"Deadline: {deadline} | Status: {status}\n\n"
-        "As project manager, give specific steps to get this done:"
+        "Give specific steps for the owner to complete this task. Do not tell them to contact themselves."
     )
     return call_ollama(SYSTEM, user_msg, max_tokens=350)
 
