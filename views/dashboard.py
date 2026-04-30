@@ -65,22 +65,25 @@ def _render_kpis(meetings: list) -> None:
     all_actions = [a for m in meetings for a in (m.get("actions") or [])]
     pending = sum(
         1 for a in all_actions
-        if normalize_status(a) in {"Pending", "In Progress", "Overdue"}
+        if normalize_status(a) in {"Pending", "In Progress"}
     )
+    overdue = sum(1 for a in all_actions if normalize_status(a) == "Overdue")
     done = sum(1 for a in all_actions if normalize_status(a) == "Done")
     total_actions = len(all_actions)
     completion = int((done / total_actions) * 100) if total_actions else 0
 
     kpi_wide("Total meetings", str(total_meetings))
 
-    c1, c2, c3, c4 = st.columns(4)
+    c1, c2, c3, c4, c5 = st.columns(5)
     with c1:
         kpi_card("Action items", str(total_actions), "Extracted tasks", "#0f766e")
     with c2:
         kpi_card("Pending", str(pending), "Still open", "#b45309")
     with c3:
-        kpi_card("Completed", str(done), "Marked done", "#1d4ed8")
+        kpi_card("Overdue", str(overdue), "Past deadline", "#991b1b")
     with c4:
+        kpi_card("Completed", str(done), "Marked done", "#1d4ed8")
+    with c5:
         completion_ring(completion)
 
 
