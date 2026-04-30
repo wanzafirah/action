@@ -282,9 +282,10 @@ def get_action_idea(action: dict) -> str:
     """AI acts as project manager and gives step-by-step guidance for an action item."""
     SYSTEM = (
         "You are a senior project manager. Given an unfinished action item, "
-        "provide 3-5 specific, practical next steps to help the team complete it. "
-        "Consider potential blockers, who to involve, and quick wins. "
-        "Be direct and actionable. Use a numbered list."
+        "provide exactly 3-4 next steps. Each step must be ONE short sentence. "
+        "Start each step with an effort tag: [QUICK] for under 30 minutes, "
+        "[SHORT] for 30-60 minutes, [LONG] for over 1 hour. "
+        "Format as a numbered list. No sub-bullets, no long explanations."
     )
     text     = normalize_value(action.get("text"), "Unknown task")
     owner    = normalize_value(action.get("owner"), "Not stated")
