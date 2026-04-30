@@ -184,11 +184,44 @@ def action_card(
         _raw_idea = st.session_state[idea_key]
         _clean_idea = _re.sub(r"\*\*(.+?)\*\*", r"\1", _raw_idea)
         _clean_idea = _re.sub(r"\*(.+?)\*", r"\1", _clean_idea)
+
+        # Parse effort tags and render as coloured pills
+        _EFFORT_STYLES = {
+            "QUICK": ("Quick",  "#dcfce7", "#166534", "#bbf7d0"),
+            "SHORT": ("Short",  "#fef9c3", "#854d0e", "#fde047"),
+            "LONG":  ("Long",   "#fee2e2", "#991b1b", "#fca5a5"),
+        }
+        _lines = _clean_idea.strip().splitlines()
+        _rows_html = ""
+        for _line in _lines:
+            _line = _line.strip()
+            if not _line:
+                continue
+            # Detect [TAG] at start of line
+            _tag_match = _re.match(r"^(\d+\.\s*)?\[?(QUICK|SHORT|LONG)\]?\s*", _line, _re.IGNORECASE)
+            if _tag_match:
+                _tag = _tag_match.group(2).upper()
+                _step_text = _line[_tag_match.end():].strip()
+                _label, _bg, _fg, _border = _EFFORT_STYLES.get(_tag, ("", "#f1f5f9", "#334155", "#cbd5e1"))
+                _pill_html = (
+                    f"<span style='background:{_bg};color:{_fg};border:1px solid {_border};"
+                    f"padding:0.15rem 0.5rem;border-radius:999px;font-size:0.72rem;"
+                    f"font-weight:700;white-space:nowrap;margin-right:0.4rem'>{_label}</span>"
+                )
+                _rows_html += (
+                    f"<div style='display:flex;align-items:flex-start;gap:0.3rem;"
+                    f"margin-bottom:0.45rem'>{_pill_html}"
+                    f"<span style='font-size:0.87rem;color:#14532d'>{_step_text}</span></div>"
+                )
+            else:
+                _rows_html += f"<div style='font-size:0.87rem;color:#14532d;margin-bottom:0.35rem'>{_line}</div>"
+
         st.markdown(
             f"<div style='background:#f0fdf4;border:1px solid #86efac;border-radius:12px;"
-            f"padding:0.7rem 0.9rem;margin:0.3rem 0 0.5rem;font-size:0.88rem;color:#14532d'>"
-            f"<strong>Guidance</strong><br><br>"
-            f"{_clean_idea.replace(chr(10), '<br>')}"
+            f"padding:0.7rem 0.9rem;margin:0.3rem 0 0.5rem'>"
+            f"<div style='font-weight:700;color:#14532d;font-size:0.85rem;"
+            f"margin-bottom:0.55rem'>Guidance</div>"
+            f"{_rows_html}"
             f"</div>",
             unsafe_allow_html=True,
         )
