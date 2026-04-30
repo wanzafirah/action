@@ -627,6 +627,11 @@ def render() -> None:
                 height=300,
                 key="cap_email_ta",
             )
+            import urllib.parse as _up
+            _subject = _up.quote(f"Meeting Follow-Up: {normalize_value(pending.get('title') or result.get('title'), 'Meeting')}")
+            _body = _up.quote(st.session_state.cap_email_draft)
+            _gmail_url = f"https://mail.google.com/mail/?view=cm&fs=1&su={_subject}&body={_body}"
+            st.link_button("Send via Gmail", _gmail_url, use_container_width=True)
 
         st.markdown("### Action items")
         st.caption("Review and edit the AI-generated tasks before saving.")
