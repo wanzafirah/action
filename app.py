@@ -14,16 +14,20 @@ from views import analytics, capture, companies, dashboard, history, people, sta
 from ui.styles import inject_css
 
 
-# ------------------------------------------------------------------
-# Page setup  (must be the very first Streamlit call)
-# ------------------------------------------------------------------
-st.set_page_config(page_title="AI-Powered Meeting Insight Generator and Action Tracker", page_icon="🧠", layout="wide")
+#page setup
+st.set_page_config(page_title="AI-Powered Meeting Insight Generator and Action Tracker", page_icon="", layout="wide")
 inject_css()
 
+# Hide Streamlit Cloud's "Manage App" button and footer
+st.markdown("""
+<style>
+[data-testid="stAppViewContainer"] > div:last-child { display: none !important; }
+footer { visibility: hidden; }
+</style>
+""", unsafe_allow_html=True)
 
-# ------------------------------------------------------------------
-# Session state (one-time load from Supabase)
-# ------------------------------------------------------------------
+
+#load from Supabase
 def _init_state() -> None:
     if st.session_state.get("data_loaded"):
         return
@@ -39,9 +43,7 @@ def _init_state() -> None:
 _init_state()
 
 
-# ------------------------------------------------------------------
-# Sidebar + router
-# ------------------------------------------------------------------
+#sidebar
 sidebar.render()
 
 PAGES = {
