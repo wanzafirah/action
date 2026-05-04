@@ -294,11 +294,6 @@ def _render_record_section(lang_choice: str) -> None:
                 "💡 Add `DEEPGRAM_API_KEY` to your secrets for live transcription. "
                 "Using standard recorder + Whisper for now."
             )
-        else:
-            st.caption(
-                "💡 Install `streamlit-webrtc`, `deepgram-sdk`, and `av` for live "
-                "transcription. Using standard recorder + Whisper for now."
-            )
         audio_source = st.audio_input("Record now", key="cap_audio_record")
         if audio_source is not None:
             st.download_button(
