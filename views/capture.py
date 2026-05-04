@@ -9,6 +9,7 @@ from config.constants import (
     DEFAULT_DEPARTMENTS,
     ORGANIZATION_TYPE_OPTIONS,
 )
+from config.settings import get_deepgram_key
 from core.database import save_meeting
 from core.pipeline import run_pipeline
 from core.services import (
@@ -18,7 +19,7 @@ from core.services import (
 )
 from core.stakeholder_db import upsert_stakeholders_from_meeting
 from ui.components import action_card, summary_panel
-from utils.helpers import generate_activity_id, uid
+from utils.helpers import generate_activity_id, normalize_value, uid
 from utils.tc_staff import get_tc_names, render_upload_widget
 
 
@@ -251,6 +252,7 @@ def _clear_all_inputs() -> None:
         "cap_s_phone", "cap_s_email",
         "pending_result", "cap_email_draft", "cap_email_ta",
         "cap_pdf_bytes", "cap_pdf_title",
+        "cap_live_captured",
     ]:
         st.session_state.pop(k, None)
     # Bump the clear counter → the text_area gets a new key → renders empty
@@ -268,6 +270,159 @@ def _clear_all_inputs() -> None:
 def _clear_stakeholders() -> None:
     """Remove all external stakeholders from the current capture form."""
     st.session_state.cap_ext_stakeholders = []
+
+
+def _render_record_section(lang_choice: str) -> None:
+    """Render the 'Record meeting audio' panel.
+
+    • If DEEPGRAM_API_KEY is configured AND streamlit-webrtc + deepgram-sdk are
+      installed → show live transcription with speaker labels.
+    • Otherwise → fall back to the standard st.audio_input recorder + Whisper batch
+      transcription.
+    """
+    from core.live_transcription import is_available as _live_ok, RTC_CONFIG
+
+    dg_key = get_deepgram_key()
+    live_mode = bool(dg_key) and _live_ok()
+
+    if live_mode:
+        _render_live_transcription(lang_choice, dg_key, RTC_CONFIG)
+    else:
+        # ── Fallback: batch Whisper ──────────────────────────────────────
+        if not dg_key:
+            st.caption(
+                "💡 Add `DEEPGRAM_API_KEY` to your secrets for live transcription. "
+                "Using standard recorder + Whisper for now."
+            )
+        else:
+            st.caption(
+                "💡 Install `streamlit-webrtc`, `deepgram-sdk`, and `av` for live "
+                "transcription. Using standard recorder + Whisper for now."
+            )
+        audio_source = st.audio_input("Record now", key="cap_audio_record")
+        if audio_source is not None:
+            st.download_button(
+                label="⬇ Save recording",
+                data=audio_source.getvalue(),
+                file_name="meeting_recording.wav",
+                mime="audio/wav",
+                key="cap_download_audio",
+            )
+            if st.button("Transcribe recording", key="cap_transcribe_rec"):
+                with st.spinner("Transcribing…"):
+                    try:
+                        from core.services import transcribe_audio_file as _ta
+                        text = _ta(audio_source, lang_choice)
+                        if not text.strip():
+                            st.warning(
+                                "Whisper returned no speech. The file may be silent, "
+                                "too short, or the VAD filter dropped everything."
+                            )
+                        else:
+                            st.session_state.cap_transcript = text
+                            st.session_state.cap_transcript_original = text
+                            st.session_state["cap_transcript_ver"] = (
+                                st.session_state.get("cap_transcript_ver", 0) + 1
+                            )
+                            st.success("Transcript ready — edit below if needed.")
+                            st.rerun()
+                    except Exception as exc:
+                        st.error(f"Transcription failed: {exc}")
+
+
+def _render_live_transcription(lang_choice: str, dg_key: str, rtc_config: dict) -> None:
+    """Live transcription UI using Deepgram streaming + streamlit-webrtc."""
+    from streamlit_webrtc import webrtc_streamer, WebRtcMode, RTCConfiguration
+    from core.live_transcription import DeepgramAudioProcessor
+
+    dg_lang = "ms" if lang_choice == "Bahasa Melayu" else "en"
+
+    st.markdown(
+        "<div style='background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;"
+        "padding:0.7rem 1rem;font-size:0.88rem;color:#166534;margin-bottom:0.6rem'>"
+        "🎙 <strong>Live transcription active</strong> — transcript appears as you speak. "
+        "Speakers are automatically labelled. Click <strong>START</strong> to begin."
+        "</div>",
+        unsafe_allow_html=True,
+    )
+
+    # ── WebRTC streamer ──────────────────────────────────────────────────────
+    webrtc_ctx = webrtc_streamer(
+        key="live_asr",
+        mode=WebRtcMode.SENDONLY,
+        audio_processor_factory=lambda: DeepgramAudioProcessor(
+            api_key=dg_key,
+            language=dg_lang,
+            diarize=True,
+        ),
+        rtc_configuration=RTCConfiguration(rtc_config),
+        media_stream_constraints={"audio": True, "video": False},
+        async_processing=True,
+    )
+
+    proc = webrtc_ctx.audio_processor if webrtc_ctx else None
+    is_playing = bool(webrtc_ctx and webrtc_ctx.state.playing)
+
+    # ── Live transcript box ──────────────────────────────────────────────────
+    st.markdown("**Live transcript**")
+    transcript_box = st.empty()
+
+    if is_playing and proc:
+        finals = proc.store.formatted()
+        interim = proc.store.get_interim()
+        if finals or interim:
+            display = finals
+            if interim:
+                display += ("\n" if finals else "") + f"*{interim}*"
+            transcript_box.markdown(display)
+        else:
+            transcript_box.caption("Listening… start speaking.")
+
+        col_refresh, col_use = st.columns(2)
+        with col_refresh:
+            if st.button("🔄 Refresh transcript", key="cap_live_refresh"):
+                st.rerun()
+        with col_use:
+            current_final = proc.store.plain_text() if proc else ""
+            if current_final and st.button("✅ Use current transcript", key="cap_live_use"):
+                st.session_state.cap_transcript = current_final
+                st.session_state.cap_transcript_original = current_final
+                st.session_state["cap_transcript_ver"] = (
+                    st.session_state.get("cap_transcript_ver", 0) + 1
+                )
+                st.success("Transcript saved — stop recording when ready.")
+                st.rerun()
+
+    elif not is_playing and proc and proc.store.has_content():
+        # Recording just stopped — auto-capture transcript
+        final_text = proc.store.plain_text()
+        formatted   = proc.store.formatted()
+
+        transcript_box.markdown(formatted or final_text)
+
+        if final_text and "cap_live_captured" not in st.session_state:
+            st.session_state.cap_transcript = final_text
+            st.session_state.cap_transcript_original = final_text
+            st.session_state["cap_transcript_ver"] = (
+                st.session_state.get("cap_transcript_ver", 0) + 1
+            )
+            st.session_state["cap_live_captured"] = True
+            st.success("Recording stopped — transcript is ready below. Edit if needed.")
+            st.rerun()
+
+    elif not is_playing:
+        transcript_box.caption("Press START above to begin recording.")
+        # Clear the captured flag so next session starts fresh
+        st.session_state.pop("cap_live_captured", None)
+
+    # ── Speaker legend ───────────────────────────────────────────────────────
+    with st.expander("About speaker labels", expanded=False):
+        st.markdown(
+            "Deepgram automatically detects different voices and labels them "
+            "**Speaker 1**, **Speaker 2**, etc. The labels are based on voice tone "
+            "and speaking pattern — they don't know the person's name. "
+            "You can rename speakers in the transcript box below before generating the brief."
+        )
 
 
 def render() -> None:
@@ -482,16 +637,9 @@ def render() -> None:
             key="cap_audio_upload",
             help="Supported formats: mp3, m4a, wav, mp4, webm",
         )
+
     elif mode == "Record meeting audio":
-        audio_source = st.audio_input("Record now", key="cap_audio_record")
-        if audio_source is not None:
-            st.download_button(
-                label="⬇ Save recording",
-                data=audio_source.getvalue(),
-                file_name="meeting_recording.wav",
-                mime="audio/wav",
-                key="cap_download_audio",
-            )
+        _render_record_section(lang_choice)
 
     if audio_source is not None and st.button("Transcribe audio", key="cap_transcribe"):
         with st.spinner("Transcribing…"):
@@ -628,7 +776,8 @@ def render() -> None:
                 key="cap_email_ta",
             )
             import urllib.parse as _up
-            _subject = _up.quote(f"Meeting Follow-Up: {normalize_value(pending.get('title') or result.get('title'), 'Meeting')}")
+            _title = (pending.get("title") or result.get("title") or "Meeting").strip()
+            _subject = _up.quote(f"Meeting Follow-Up: {_title}")
             _body = _up.quote(st.session_state.cap_email_draft)
             _gmail_url = f"https://mail.google.com/mail/?view=cm&fs=1&su={_subject}&body={_body}"
             st.link_button("Send via Gmail", _gmail_url, use_container_width=True)
