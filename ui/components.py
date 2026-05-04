@@ -70,6 +70,7 @@ def action_card(
     meeting_date: str = "",
     meeting_title: str = "",
     show_suggestion: bool = False,
+    key_prefix: str = "",
 ) -> None:
     """Render a single action item with smart nudge flags."""
     status = normalize_status(action)
@@ -147,23 +148,24 @@ def action_card(
         return
 
     action_id = action.get("id", "")
+    _k = f"{key_prefix}{action_id}"
 
     # ── Edit / Give Idea toggle buttons side by side ─────────────────
-    edit_toggle_key = f"edit_open_{action_id}"
-    idea_key        = f"idea_{action_id}"
-    idea_open       = f"idea_open_{action_id}"
+    edit_toggle_key = f"edit_open_{_k}"
+    idea_key        = f"idea_{_k}"
+    idea_open       = f"idea_open_{_k}"
 
     col_edit_btn, col_idea_btn = st.columns(2)
     with col_edit_btn:
         if st.button(
             "Hide Edit" if st.session_state.get(edit_toggle_key) else "Edit",
-            key=f"btn_toggle_edit_{action_id}",
+            key=f"btn_toggle_edit_{_k}",
             use_container_width=True,
         ):
             st.session_state[edit_toggle_key] = not st.session_state.get(edit_toggle_key, False)
             st.rerun()
     with col_idea_btn:
-        if st.button("Give Idea", key=f"btn_idea_{action_id}", use_container_width=True):
+        if st.button("Give Idea", key=f"btn_idea_{_k}", use_container_width=True):
             if st.session_state.get(idea_open):
                 st.session_state.pop(idea_key, None)
                 st.session_state[idea_open] = False
@@ -237,7 +239,7 @@ def action_card(
     new_text = st.text_input(
         "Task description",
         value=action.get("text", ""),
-        key=f"text_{action_id}",
+        key=f"text_{_k}",
         placeholder="Describe the action item…",
     )
 
@@ -250,7 +252,7 @@ def action_card(
             "Status",
             STATUSES,
             index=STATUSES.index(current) if current in STATUSES else 0,
-            key=f"status_{action_id}",
+            key=f"status_{_k}",
         )
 
     with col_edit2:
@@ -265,7 +267,7 @@ def action_card(
             "Assignee",
             options=_owner_opts,
             default=[n for n in _cur_owners if n in _owner_opts],
-            key=f"owner_{action_id}",
+            key=f"owner_{_k}",
             placeholder="Select one or more assignees…",
         )
 
@@ -282,13 +284,13 @@ def action_card(
             "Department",
             options=_dept_opts,
             index=_dept_idx,
-            key=f"dept_sel_{action_id}",
+            key=f"dept_sel_{_k}",
         )
         if _dept_sel == "Other (type manually)":
             new_dept = st.text_input(
                 "Department (manual)",
                 value=_cur_dept if _cur_dept not in _dept_opts else "",
-                key=f"dept_{action_id}",
+                key=f"dept_{_k}",
                 placeholder="Type department name…",
             )
         else:
@@ -300,7 +302,7 @@ def action_card(
             "Deadline",
             ["No deadline", "Set deadline"],
             index=0 if deadline_value in ("", "None", "Not stated") else 1,
-            key=f"dl_mode_{action_id}",
+            key=f"dl_mode_{_k}",
         )
 
     try:
@@ -310,7 +312,7 @@ def action_card(
     edited = st.date_input(
         "Deadline date",
         value=default_deadline,
-        key=f"dl_{action_id}",
+        key=f"dl_{_k}",
         disabled=mode == "No deadline",
         label_visibility="collapsed",
     )
