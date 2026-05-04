@@ -453,5 +453,12 @@ def _render_meeting(meeting: dict, key_prefix: str = "") -> None:
             st.warning(f"Supabase sync failed: {exc}")
 
     meeting_date = normalize_value(meeting.get("date"), "")
+    meeting_key = meeting.get("id") or meeting.get("title", "")
     for action in actions:
-        action_card(action, editable=True, persist_callback=persist, meeting_date=meeting_date)
+        action_card(
+            action,
+            editable=True,
+            persist_callback=persist,
+            meeting_date=meeting_date,
+            key_prefix=f"{key_prefix}{meeting_key}_",
+        )
