@@ -70,3 +70,16 @@ def get_supabase_config() -> dict:
 
 def is_supabase_configured() -> bool:
     return bool(get_supabase_config())
+
+
+# ------------------------------------------------------------------
+# Deepgram (live transcription)
+# ------------------------------------------------------------------
+def get_deepgram_key() -> str:
+    """Return the Deepgram API key, or empty string if not configured.
+
+    Set in .streamlit/secrets.toml as:
+        DEEPGRAM_API_KEY = "your_key_here"
+    or as an environment variable DEEPGRAM_API_KEY.
+    """
+    return _secret("DEEPGRAM_API_KEY")
