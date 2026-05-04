@@ -18,11 +18,10 @@ from ui.styles import inject_css
 st.set_page_config(page_title="AI-Powered Meeting Insight Generator and Action Tracker", page_icon="", layout="wide")
 inject_css()
 
-# Hide Streamlit Cloud's "Manage App" button and footer
+# Hide Streamlit Cloud's "Manage App" toolbar
 st.markdown("""
 <style>
-[data-testid="stAppViewContainer"] > div:last-child { display: none !important; }
-footer { visibility: hidden; }
+[data-testid="stToolbar"] { display: none !important; }
 </style>
 """, unsafe_allow_html=True)
 
