@@ -620,12 +620,12 @@ def render() -> None:
     )
     lang_choice = st.radio(
         "Audio language",
-        ["English / Manglish", "Bahasa Melayu"],
+        ["English", "Bahasa Melayu"],
         horizontal=True,
         key="cap_translate",
     )
     ai_correct = st.checkbox(
-        "Apply AI correction (recommended for Manglish)",
+        "Apply AI correction (recommended)",
         value=True,
         key="cap_ai_correct",
         help=(
