@@ -8,7 +8,11 @@ anywhere, including unit tests.
 # Model configuration
 # ------------------------------------------------------------------
 OLLAMA_MODEL = "llama3.2:latest"
-WHISPER_MODEL = "tiny"           # faster-whisper model size: tiny / base / small / medium
+WHISPER_MODEL = "small"          # faster-whisper model size: tiny / base / small / medium
+                                 # 'small' (244M) is the sweet spot on i5-12450H + 16 GB:
+                                 # ~2-3x realtime, ~500 MB RAM, big quality jump on Manglish.
+                                 # Bump to 'medium' for batch jobs if Ollama isn't running.
+WHISPER_CPU_THREADS = 6          # Use 6 of 8 cores; leaves headroom for Ollama + OS
 
 # ------------------------------------------------------------------
 # Supabase table names
