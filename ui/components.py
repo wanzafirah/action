@@ -318,14 +318,77 @@ def action_card(
     )
     new_deadline = "None" if mode == "No deadline" else edited.isoformat()
 
+    # ── Proof upload — required when marking as Done ─────────────────
+    _existing_proof = action.get("proof_url", "").strip()
+    _proof_needed   = new_status == "Done" and not _existing_proof
+
+    if new_status == "Done":
+        if _existing_proof:
+            st.markdown(
+                f"<div style='background:#f0fdf4;border:1px solid #86efac;border-radius:10px;"
+                f"padding:0.45rem 0.8rem;font-size:0.83rem;color:#14532d;margin-top:0.3rem'>"
+                f"Proof uploaded: <a href='{_existing_proof}' target='_blank' "
+                f"style='color:#15803d;font-weight:700'>View proof</a></div>",
+                unsafe_allow_html=True,
+            )
+            # Allow replacing proof
+            if st.checkbox("Replace proof", key=f"proof_replace_{_k}"):
+                _new_proof_file = st.file_uploader(
+                    "Upload replacement proof",
+                    type=["pdf", "png", "jpg", "jpeg", "webp"],
+                    key=f"proof_new_{_k}",
+                )
+                if _new_proof_file:
+                    with st.spinner("Uploading proof…"):
+                        from core.storage import upload_proof
+                        _url = upload_proof(
+                            _new_proof_file.getvalue(),
+                            _new_proof_file.name,
+                            action_id,
+                        )
+                    if _url:
+                        action["proof_url"] = _url
+                        st.success("Proof replaced.")
+                    else:
+                        st.warning("Upload failed — check your Supabase Storage bucket.")
+        else:
+            st.markdown(
+                "<div style='background:#fef9c3;border:1px solid #fde047;border-radius:10px;"
+                "padding:0.45rem 0.8rem;font-size:0.83rem;color:#854d0e;margin-top:0.3rem'>"
+                "Proof of completion is required before marking this task as Done.</div>",
+                unsafe_allow_html=True,
+            )
+            _proof_file = st.file_uploader(
+                "Upload proof (PDF or image)",
+                type=["pdf", "png", "jpg", "jpeg", "webp"],
+                key=f"proof_{_k}",
+            )
+            if _proof_file:
+                with st.spinner("Uploading proof…"):
+                    from core.storage import upload_proof
+                    _url = upload_proof(
+                        _proof_file.getvalue(),
+                        _proof_file.name,
+                        action_id,
+                    )
+                if _url:
+                    action["proof_url"] = _url
+                    _proof_needed = False
+                    st.success("Proof uploaded. You can now save.")
+                else:
+                    st.error("Upload failed — check your Supabase Storage bucket settings.")
+
     changed = False
     _new_text_stripped = new_text.strip()
     if _new_text_stripped and _new_text_stripped != normalize_value(action.get("text"), ""):
         action["text"] = _new_text_stripped
         changed = True
     if new_status != current:
-        action["status"] = new_status
-        changed = True
+        if new_status == "Done" and _proof_needed:
+            st.error("Please upload proof of completion before marking this task as Done.")
+        else:
+            action["status"] = new_status
+            changed = True
     if new_deadline != normalize_value(action.get("deadline"), "None"):
         action["deadline"] = new_deadline
         changed = True
@@ -337,6 +400,9 @@ def action_card(
     if _saved_dept != normalize_value(action.get("department") or action.get("company"), "Not stated"):
         action["department"] = _saved_dept
         action["company"]    = _saved_dept
+        changed = True
+    # Persist proof_url update even if no other field changed
+    if action.get("proof_url") and action.get("proof_url") != _existing_proof:
         changed = True
     if changed and persist_callback:
         persist_callback()
