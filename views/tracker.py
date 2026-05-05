@@ -437,27 +437,7 @@ def _render_meeting(meeting: dict, key_prefix: str = "") -> None:
         _subject = _up.quote(f"Meeting Follow-Up: {normalize_value(meeting.get('title'), 'Meeting')}")
         _body = _up.quote(st.session_state[email_key])
         _gmail_url = f"https://mail.google.com/mail/?view=cm&fs=1&su={_subject}&body={_body}"
-        _col_gmail, _col_ics = st.columns(2)
-        with _col_gmail:
-            st.link_button("Send via Gmail", _gmail_url, use_container_width=True)
-        with _col_ics:
-            try:
-                from utils.export import generate_ics as _gen_ics
-                _ics_bytes = _gen_ics(meeting)
-                _ics_name = "".join(
-                    c for c in normalize_value(meeting.get("title"), "meeting")
-                    if c.isalnum() or c in " _-"
-                )[:40].strip() or "meeting"
-                st.download_button(
-                    label="Download Calendar Reminder",
-                    data=_ics_bytes,
-                    file_name=f"{_ics_name}.ics",
-                    mime="text/calendar",
-                    use_container_width=True,
-                    key=f"{key_prefix}ics_dl_{meeting_id}",
-                )
-            except Exception as _e:
-                st.caption(f"Calendar file error: {_e}")
+        st.link_button("Send via Gmail", _gmail_url, use_container_width=True)
 
     actions = meeting.get("actions", []) or []
     if not actions:
