@@ -14,7 +14,7 @@ import pandas as pd
 import requests
 import streamlit as st
 
-from config.constants import OLLAMA_MODEL, WHISPER_MODEL
+from config.constants import OLLAMA_MODEL, WHISPER_MODEL, WHISPER_CPU_THREADS
 from config.settings import get_ollama_url
 
 # ---- Optional dependencies (fail lazily so missing packages don't crash import) ----
@@ -121,6 +121,76 @@ def stream_ollama(system: str, user_msg: str, max_tokens: int = 300,
         yield f"\n\n[Error reaching Ollama: {exc}]"
 
 
+# ==================================================================
+# TRANSCRIPT CORRECTION (Ollama)
+# ==================================================================
+TRANSCRIPT_CORRECTOR_SYSTEM = (
+    "You are a Malaysian-context transcript editor. The text you receive was "
+    "produced by an automatic speech recognition system listening to Malaysian "
+    "workplace meetings that mix English and Bahasa Malaysia (Manglish). "
+    "Your job is to fix obvious mis-transcriptions of Malay words, proper "
+    "nouns, and Malaysian institution names — without changing the meaning, "
+    "rephrasing, summarising, or translating. "
+    "\n\n"
+    "Common terms you should recognise and correct: "
+    "TalentCorp, MyMahir, MyNext, MyXpats, MyHeart, GEF, MPT, GCEO, Supabase; "
+    "Pusat Kaunseling Kerjaya, Pertahanan, Alumni, Universiti Malaysia Pahang "
+    "Al-Sultan Abdullah (UMP), UPNM, UiTM, UM, UKM, UTM, USM, MMU, APU, UCSI, "
+    "UTAR; Group Strategy Office, School Talent Hub, MyMahir Workforce "
+    "Solutions, Group Business Intelligence, Graduates Emerging Talent, "
+    "MyHeart Facilitation, MYXpats Operations, GCEO Liaison Office. "
+    "\n\n"
+    "Examples of fixes you should make: "
+    "Pousat → Pusat; Patahanan → Pertahanan; Alumnai → Alumni; "
+    "Kejaya → Kejayaan or Kerjaya (use whichever fits the surrounding words); "
+    "Consoling → Kaunseling; Sherizan stays as Sherizan; Hazman stays as Hazman. "
+    "\n\n"
+    "Rules: "
+    "1. Output ONLY the corrected transcript. No preface, no explanation, no markdown. "
+    "2. Preserve all sentences, all speakers, all line breaks. "
+    "3. Never invent facts, dates, or names that are not phonetically present. "
+    "4. If a word is genuinely ambiguous, leave it as-is rather than guessing wildly. "
+    "5. Keep code-switching intact — do not translate Malay to English or vice versa."
+)
+
+
+def correct_transcript_with_ollama(raw_transcript: str, lang_choice: str = "English / Manglish") -> str:
+    """Run a raw Whisper transcript through llama3.2 for Malaysian-context correction.
+
+    Cheap (local model), but high-impact: catches name and place-name garbling
+    that ASR fundamentally cannot fix on its own.
+    """
+    if not raw_transcript or not raw_transcript.strip():
+        return raw_transcript
+
+    register = (
+        "The transcript is in Manglish (mixed English + Bahasa Malaysia)."
+        if lang_choice != "Bahasa Melayu"
+        else "The transcript is in Bahasa Malaysia."
+    )
+
+    user_msg = (
+        f"{register}\n\n"
+        "Correct the transcript below. Output only the corrected transcript.\n\n"
+        f"--- TRANSCRIPT ---\n{raw_transcript}\n--- END ---"
+    )
+
+    # Generous token budget — output should be roughly the same length as input.
+    approx_tokens = max(800, int(len(raw_transcript.split()) * 2.0))
+    corrected = call_ollama(
+        system=TRANSCRIPT_CORRECTOR_SYSTEM,
+        user_msg=user_msg,
+        max_tokens=min(approx_tokens, 4000),
+        temperature=0.05,                     # near-deterministic, just fix errors
+        num_ctx=max(4096, approx_tokens + 1024),
+    ).strip()
+
+    # Defensive: if the model returned nothing useful, fall back to raw.
+    if not corrected or len(corrected) < len(raw_transcript) * 0.4:
+        return raw_transcript
+    return corrected
+
+
 #audio transcription (whisper)
 @st.cache_resource(show_spinner=False)
 def get_whisper_model():
@@ -128,18 +198,33 @@ def get_whisper_model():
         raise RuntimeError(
             "faster-whisper is not installed. Add `faster-whisper` to requirements.txt."
         )
-    return WhisperModel(WHISPER_MODEL, device="cpu", compute_type="int8")
+    return WhisperModel(
+        WHISPER_MODEL,
+        device="cpu",
+        compute_type="int8",
+        cpu_threads=WHISPER_CPU_THREADS,
+    )
 
 
-def transcribe_audio_file(uploaded_file, lang_choice: str = "English / Manglish") -> str:
+def transcribe_audio_file(
+    uploaded_file,
+    lang_choice: str = "English / Manglish",
+    ai_correct: bool = True,
+) -> str:
     """Transcribe an audio file and return the text.
 
     lang_choice:
-      "English / Manglish" — pins Whisper to English mode. Malay filler words
-          (lah, kan, etc.) are dropped or phonetically guessed. Best for
-          code-switching Manglish meetings.
-      "Bahasa Melayu" — pins Whisper to Malay (ms). Keeps the full BM
-          transcript as spoken, no translation.
+      "English / Manglish" — pins Whisper to MALAY (ms). Counter-intuitive
+          but Malay-pinned Whisper handles English code-switching naturally,
+          while English-pinned Whisper has no Malay vocabulary and garbles
+          proper nouns (Pusat → Pousat, Pertahanan → Patahanan, etc.).
+      "Bahasa Melayu" — also pins to Malay. Same engine path; kept as a
+          separate label so the UI reads naturally to non-Manglish users.
+
+    ai_correct:
+      When True (default), the raw Whisper output is post-processed by
+      llama3.2 with a Malaysian-context correction prompt that fixes
+      mistranscribed names, organisations and Malay terms.
     """
     model = get_whisper_model()
     name = getattr(uploaded_file, "name", "audio.wav")
@@ -153,43 +238,38 @@ def transcribe_audio_file(uploaded_file, lang_choice: str = "English / Manglish"
     tmp.close()
 
     try:
+        # Both modes pin to Malay. Whisper handles code-switched English-in-Malay
+        # natively, but English-pinned Whisper has no Malay phonemes and
+        # produces garbage for Malay names. Differentiate only via the prompt
+        # so Whisper biases towards the right register.
+        task = "transcribe"
+        language = "ms"
+
         if lang_choice == "Bahasa Melayu":
-            # Pin to Malay, transcribe as-is (no translation)
-            task = "transcribe"
-            language = "ms"
             initial_prompt = (
                 "Ini adalah mesyuarat dalaman TalentCorp Malaysia dalam Bahasa Malaysia. "
-                "Nama jenama: TalentCorp, MyMahir, MyNext, MyXpats, MyHeart, GEF, MPT. "
-                "Istilah institusi: Pusat, Kaunseling, Pertahanan, Universiti, Alumni, "
-                "Politeknik, Kolej, Fakulti, Jabatan, Pejabat, Institut, Akademi, "
-                "Pengurusan, Pembangunan, Latihan, Penyelidikan, Teknologi, Kejuruteraan. "
-                "Universiti Malaysia: UPM, UPNM, UTM, UiTM, UM, UKM, USM, UTEM, UTHM, UNITEN, "
-                "UPSI, UMP, UniMAP, UMSKAL, USIM, UMK, UMS, UNIMAS. "
-                "Jabatan: Pejabat Strategi Kumpulan, Pusat Bakat Sekolah, MyMahir Penyelesaian Tenaga Kerja."
+                "Penceramah membincangkan kerjasama dengan Pusat Kaunseling Kerjaya, "
+                "Alumni Universiti Malaysia Pahang Al-Sultan Abdullah, Pertahanan, "
+                "Politeknik dan Institut Pengajian Tinggi Awam. Mereka menyebut nama "
+                "jenama TalentCorp, MyMahir, MyNext, MyXpats, MyHeart, GEF, MPT serta "
+                "jabatan seperti Pejabat Strategi Kumpulan, Pusat Bakat Sekolah, "
+                "MyMahir Penyelesaian Tenaga Kerja, Pengurusan Bakat Kumpulan."
             )
         else:
-            # English / Manglish — pin to English for cleaner output
-            task = "transcribe"
-            language = "en"
+            # English / Manglish — same Malay engine, prompt biases toward
+            # the typical TalentCorp Manglish meeting register.
             initial_prompt = (
-                "This is a TalentCorp Malaysia internal meeting in Manglish — a mix of "
-                "English and Bahasa Malaysia. "
-                "Brand names: TalentCorp, MyMahir, MyNext, MyXpats, MyHeart, MyWira, "
-                "GEF, MPT, MYXpats, TCBD, GCEO, Supabase. "
-                "Common Malay words: lah, kan, boleh, macam, memang, sikit, banyak, "
-                "sudah, belum, takde, takut, cakap, kena, okay, ya, eh, ah, "
-                "nak, ada, dari, untuk, dengan, tapi, sebab, kalau, bila, semua. "
-                "Malay institutional words: Pusat, Kaunseling, Pertahanan, Universiti, "
-                "Alumni, Politeknik, Kolej, Fakulti, Jabatan, Pejabat, Institut, Akademi, "
-                "Pengurusan, Pembangunan, Latihan, Penyelidikan, Teknologi, Kejuruteraan, "
-                "Perkhidmatan, Pelajar, Siswazah, Graduan, Koordinator, Industri, Kerjasama, "
-                "Persatuan, Majlis, Jawatankuasa, Penolong, Timbalan, Naib Canselor. "
-                "Malaysian universities: UPM, UPNM, UTM, UiTM, UM, UKM, USM, UTEM, UTHM, "
-                "UNITEN, UPSI, UMP, UniMAP, USIM, UMK, UMS, UNIMAS, MMU, APU, HELP, Sunway, "
-                "Taylor's, Monash Malaysia, UCSI, UTAR, INTI, Manipal. "
-                "Departments: Group Digital, Group Finance, Group Human Resources, "
-                "Group Strategy Office, Campus Engagement, School Talent Hub, "
-                "MyMahir Workforce Solutions, Group Business Intelligence."
+                "Mesyuarat TalentCorp Malaysia dalam Manglish, campuran Bahasa "
+                "Malaysia dan English. Penceramah membincangkan kerjasama dengan "
+                "Pusat Kaunseling Kerjaya, Alumni Universiti Malaysia Pahang "
+                "Al-Sultan Abdullah, Pertahanan, Politeknik. Penceramah Sherizan, "
+                "Hazman, Mei Ling, Aisyah, Farhan, Lim Jing Rou, Kavitha. "
+                "Brand: TalentCorp, MyMahir, MyNext, MyXpats, MyHeart, MyWira, "
+                "GEF, MPT, GCEO, Supabase. Departments: Group Strategy Office, "
+                "School Talent Hub, MyMahir Workforce Solutions, Group Business "
+                "Intelligence, Graduates Emerging Talent, MyHeart Facilitation, "
+                "MYXpats Operations, GCEO Liaison Office. Universities: UMP, "
+                "UPNM, UPM, UTM, UiTM, UM, UKM, USM, UNITEN, MMU, APU, UCSI, UTAR."
             )
 
         segments, _info = model.transcribe(
@@ -199,9 +279,23 @@ def transcribe_audio_file(uploaded_file, lang_choice: str = "English / Manglish"
             beam_size=5,
             language=language,
             initial_prompt=initial_prompt,
+            condition_on_previous_text=False,  # avoid hallucination loops
+            temperature=[0.0, 0.2, 0.4],       # fall back gracefully if no good hypothesis
         )
-        text = " ".join(segment.text.strip() for segment in segments if segment.text.strip())
-        return text.strip()
+        raw = " ".join(segment.text.strip() for segment in segments if segment.text.strip()).strip()
+        if not raw:
+            return raw
+
+        if not ai_correct:
+            return raw
+
+        # Post-correction with Ollama (Malaysian-context prompt)
+        try:
+            return correct_transcript_with_ollama(raw, lang_choice)
+        except Exception:
+            # If Ollama is unreachable, return the raw Whisper output rather
+            # than failing the whole transcription.
+            return raw
     finally:
         if os.path.exists(tmp.name):
             os.remove(tmp.name)
