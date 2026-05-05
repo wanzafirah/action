@@ -775,7 +775,27 @@ def render() -> None:
             _subject = _up.quote(f"Meeting Follow-Up: {_title}")
             _body = _up.quote(st.session_state.cap_email_draft)
             _gmail_url = f"https://mail.google.com/mail/?view=cm&fs=1&su={_subject}&body={_body}"
-            st.link_button("Send via Gmail", _gmail_url, use_container_width=True)
+            _col_gmail, _col_ics = st.columns(2)
+            with _col_gmail:
+                st.link_button("Send via Gmail", _gmail_url, use_container_width=True)
+            with _col_ics:
+                try:
+                    from utils.export import generate_ics as _gen_ics
+                    _ics_record = _build_meeting_record(pending)
+                    _ics_bytes = _gen_ics(_ics_record)
+                    _ics_name = "".join(
+                        c for c in _title if c.isalnum() or c in " _-"
+                    )[:40].strip() or "meeting"
+                    st.download_button(
+                        label="Download Calendar Reminder",
+                        data=_ics_bytes,
+                        file_name=f"{_ics_name}.ics",
+                        mime="text/calendar",
+                        use_container_width=True,
+                        key="cap_ics_dl",
+                    )
+                except Exception as _e:
+                    st.caption(f"Calendar file error: {_e}")
 
         st.markdown("### Action items")
         st.caption("Review and edit the AI-generated tasks before saving.")
