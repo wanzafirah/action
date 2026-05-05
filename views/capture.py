@@ -304,10 +304,12 @@ def _render_record_section(lang_choice: str) -> None:
                 key="cap_download_audio",
             )
             if st.button("Transcribe recording", key="cap_transcribe_rec"):
-                with st.spinner("Transcribing…"):
+                ai_correct = st.session_state.get("cap_ai_correct", True)
+                spinner_msg = "Transcribing… (Whisper + AI correction)" if ai_correct else "Transcribing…"
+                with st.spinner(spinner_msg):
                     try:
                         from core.services import transcribe_audio_file as _ta
-                        text = _ta(audio_source, lang_choice)
+                        text = _ta(audio_source, lang_choice, ai_correct=ai_correct)
                         if not text.strip():
                             st.warning(
                                 "Whisper returned no speech. The file may be silent, "
@@ -622,6 +624,17 @@ def render() -> None:
         horizontal=True,
         key="cap_translate",
     )
+    ai_correct = st.checkbox(
+        "Apply AI correction (recommended for Manglish)",
+        value=True,
+        key="cap_ai_correct",
+        help=(
+            "Runs the raw Whisper transcript through LLaMA 3.2 with a "
+            "Malaysian-context prompt. Fixes mis-transcribed names and Malay "
+            "terms (e.g. 'Pousat' → 'Pusat', 'Patahanan' → 'Pertahanan'). "
+            "Adds a few seconds. Uncheck to see the raw Whisper output."
+        ),
+    )
     translate = lang_choice  # passed to transcribe_audio_file
 
     audio_source = None
@@ -637,9 +650,10 @@ def render() -> None:
         _render_record_section(lang_choice)
 
     if audio_source is not None and st.button("Transcribe audio", key="cap_transcribe"):
-        with st.spinner("Transcribing…"):
+        spinner_msg = "Transcribing… (Whisper + AI correction)" if ai_correct else "Transcribing…"
+        with st.spinner(spinner_msg):
             try:
-                text = transcribe_audio_file(audio_source, lang_choice)
+                text = transcribe_audio_file(audio_source, lang_choice, ai_correct=ai_correct)
                 if not text.strip():
                     st.warning(
                         "Whisper returned no speech. The file may be silent, too short, "
