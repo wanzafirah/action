@@ -229,3 +229,101 @@ def generate_meeting_pdf(meeting: dict) -> bytes:
 
     doc.build(story)
     return buf.getvalue()
+
+
+# ── iCalendar (.ics) export ─────────────────────────────────────────
+def generate_ics(meeting: dict) -> bytes:
+    """Generate an iCalendar (.ics) file for a meeting.
+
+    The file contains:
+    - An all-day calendar event on the meeting date
+    - Meeting summary, objective, and action items in the description
+    - A 1-day-before email + display reminder (VALARM)
+
+    Recipients open the file → click "Add to Calendar" →
+    Google Calendar / Outlook / Apple Calendar adds it with a reminder.
+    """
+    from datetime import datetime as _dt, timezone as _tz
+    import uuid as _uuid
+
+    title      = normalize_value(meeting.get("title"), "Meeting")
+    date_str   = normalize_value(meeting.get("date"), "")
+    summary    = normalize_value(meeting.get("summary"), "")
+    objective  = normalize_value(meeting.get("objective"), "")
+    report_by  = normalize_value(meeting.get("user_id") or meeting.get("updated_by"), "")
+    actions    = meeting.get("actions") or []
+
+    # Parse meeting date → YYYYMMDD for all-day event
+    try:
+        meeting_date = _dt.strptime(date_str, "%Y-%m-%d")
+        dtstart = meeting_date.strftime("%Y%m%d")
+        # All-day event ends the next day in iCal
+        from datetime import timedelta as _td
+        dtend = (meeting_date + _td(days=1)).strftime("%Y%m%d")
+    except Exception:
+        today = _dt.now()
+        dtstart = today.strftime("%Y%m%d")
+        dtend   = today.strftime("%Y%m%d")
+
+    # Timestamp of when this .ics was created (UTC)
+    dtstamp = _dt.now(_tz.utc).strftime("%Y%m%dT%H%M%SZ")
+
+    # Build description — escape commas, semicolons, newlines per RFC 5545
+    def _esc(s: str) -> str:
+        return s.replace("\\", "\\\\").replace(";", "\\;").replace(",", "\\,").replace("\n", "\\n")
+
+    desc_parts = []
+    if summary:
+        desc_parts.append(f"Summary:\\n{summary}")
+    if objective:
+        desc_parts.append(f"Objective:\\n{objective}")
+
+    pending_actions = [
+        a for a in actions
+        if normalize_status(a) not in ("Done", "Cancelled")
+    ]
+    if pending_actions:
+        desc_parts.append("Action Items:")
+        for i, a in enumerate(pending_actions, 1):
+            text     = normalize_value(a.get("text"), "")
+            owner    = normalize_value(a.get("owner"), "Not stated")
+            deadline = normalize_value(a.get("deadline"), "Not stated")
+            desc_parts.append(f"  {i}. {text} | Owner: {owner} | Deadline: {deadline}")
+
+    if report_by:
+        desc_parts.append(f"\\nReport by: {report_by}")
+
+    description = _esc("\\n\\n".join(desc_parts))
+    uid = str(_uuid.uuid4()) + "@meetiq"
+
+    ics = "\r\n".join([
+        "BEGIN:VCALENDAR",
+        "VERSION:2.0",
+        "PRODID:-//MeetIQ//Meeting Reminder//EN",
+        "CALSCALE:GREGORIAN",
+        "METHOD:PUBLISH",
+        "BEGIN:VEVENT",
+        f"UID:{uid}",
+        f"DTSTAMP:{dtstamp}",
+        f"DTSTART;VALUE=DATE:{dtstart}",
+        f"DTEND;VALUE=DATE:{dtend}",
+        f"SUMMARY:Follow-Up: {_esc(title)}",
+        f"DESCRIPTION:{description}",
+        # Reminder: display alert 1 day before
+        "BEGIN:VALARM",
+        "TRIGGER:-P1D",
+        "ACTION:DISPLAY",
+        "DESCRIPTION:Meeting follow-up reminder",
+        "END:VALARM",
+        # Second reminder: email 1 day before
+        "BEGIN:VALARM",
+        "TRIGGER:-P1D",
+        "ACTION:EMAIL",
+        "SUMMARY:Meeting follow-up reminder",
+        f"DESCRIPTION:{description}",
+        "END:VALARM",
+        "END:VEVENT",
+        "END:VCALENDAR",
+        "",
+    ])
+    return ics.encode("utf-8")
