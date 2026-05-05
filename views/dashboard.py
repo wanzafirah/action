@@ -270,22 +270,7 @@ def _render_upcoming(meetings: list) -> None:
 def _render_chatbot(meetings: list) -> None:
     st.markdown("#### Ask your meetings")
 
-    user_id = st.text_input(
-        "Enter your ID to start chatting",
-        value=st.session_state.get("chat_user_id", ""),
-        key="chat_user_id_input",
-        placeholder="e.g. wan01",
-    )
-    st.session_state.chat_user_id = user_id.strip()
-
-    if not st.session_state.chat_user_id:
-        # User cleared their ID — wipe the current session so next login starts fresh
-        st.session_state.pop("dashboard_chat_messages", None)
-        st.session_state.pop("dashboard_chat_session_id", None)
-        st.caption("Your chat history is private — only visible when this ID is entered.")
-        return
-
-    # Start a fresh session each time this ID is entered for the first time
+    # Initialise session on first load
     if "dashboard_chat_messages" not in st.session_state:
         st.session_state.dashboard_chat_messages = []
         st.session_state.dashboard_chat_session_id = uid()
@@ -313,10 +298,10 @@ def _render_chatbot(meetings: list) -> None:
     )
 
     # Input form
-    with st.form(f"chat_form__{st.session_state.chat_user_id}", clear_on_submit=True):
+    with st.form("chat_form", clear_on_submit=True):
         question = st.text_input(
             "Your question",
-            key=f"chat_q__{st.session_state.chat_user_id}",
+            key="chat_q",
             placeholder="Ask about your meetings…",
             label_visibility="collapsed",
         )
@@ -332,10 +317,9 @@ def _render_chatbot(meetings: list) -> None:
         save_key = f"chat_saved__{st.session_state.dashboard_chat_session_id}"
         already_saved = st.session_state.get(save_key, False)
         if already_saved:
-            st.caption("✅ Saved to Chat History")
+            st.caption("Saved to Chat History")
         else:
-            if st.button("Save chat", key=f"chat_save__{st.session_state.chat_user_id}",
-                         use_container_width=True):
+            if st.button("Save chat", key="chat_save", use_container_width=True):
                 session_id = st.session_state.get("dashboard_chat_session_id", uid())
                 # Save each Q&A pair that hasn't been stored yet
                 pairs = [(messages[i], messages[i + 1])
@@ -346,8 +330,8 @@ def _render_chatbot(meetings: list) -> None:
                 for q_entry, a_entry in pairs:
                     save_history_entry({
                         "id": uid(),
-                        "user_id": st.session_state.chat_user_id,
-                        "thread_key": f"{st.session_state.chat_user_id}|{today_str()}|{session_id}",
+                        "user_id": "shared",
+                        "thread_key": f"shared|{today_str()}|{session_id}",
                         "thread_date": today_str(),
                         "thread_title": q_entry["text"][:60],
                         "timestamp": datetime.now().isoformat(timespec="seconds"),
