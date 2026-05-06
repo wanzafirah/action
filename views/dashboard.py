@@ -378,8 +378,8 @@ def _render_chatbot(meetings: list) -> None:
         session_id = st.session_state.get("dashboard_chat_session_id", uid())
         save_history_entry({
             "id": uid(),
-            "user_id": st.session_state.chat_user_id,
-            "thread_key": f"{st.session_state.chat_user_id}|{today_str()}|{session_id}",
+            "user_id": "shared",
+            "thread_key": f"shared|{today_str()}|{session_id}",
             "thread_date": today_str(),
             "thread_title": pending_q[:60],
             "timestamp": datetime.now().isoformat(timespec="seconds"),
