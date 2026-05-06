@@ -145,6 +145,94 @@ def render() -> None:
         },
     )
 
+    # ── Excel / CSV Import ───────────────────────────────────────────
+    with st.expander("Import from Excel / CSV"):
+        st.caption("Upload a file with columns: Name, Position, Organisation, Phone, Email")
+        import_file = st.file_uploader(
+            "Choose file",
+            type=["xlsx", "xls", "csv"],
+            key="stk_import_file",
+            label_visibility="collapsed",
+        )
+        if import_file:
+            try:
+                if import_file.name.endswith(".csv"):
+                    import_df = pd.read_csv(import_file)
+                else:
+                    import_df = pd.read_excel(import_file)
+
+                # Normalise column names — strip spaces, lowercase for matching
+                import_df.columns = import_df.columns.str.strip()
+                col_map = {c.lower(): c for c in import_df.columns}
+
+                def _pick(keys):
+                    for k in keys:
+                        if k in col_map:
+                            return col_map[k]
+                    return None
+
+                name_col  = _pick(["name", "nama", "full name", "fullname"])
+                pos_col   = _pick(["position", "jawatan", "title", "job title", "role"])
+                org_col   = _pick(["organisation", "organization", "company", "syarikat", "org"])
+                phone_col = _pick(["phone", "tel", "telefon", "mobile", "contact"])
+                email_col = _pick(["email", "e-mail", "emel"])
+
+                if not name_col:
+                    st.error("Could not find a 'Name' column. Make sure your file has a column called Name.")
+                else:
+                    preview_rows = []
+                    for _, row in import_df.iterrows():
+                        name_val = str(row.get(name_col, "") or "").strip()
+                        if not name_val:
+                            continue
+                        preview_rows.append({
+                            "Name":         name_val,
+                            "Position":     str(row.get(pos_col,   "") or "").strip() if pos_col   else "",
+                            "Organisation": str(row.get(org_col,   "") or "").strip() if org_col   else "",
+                            "Phone":        str(row.get(phone_col, "") or "").strip() if phone_col else "",
+                            "Email":        str(row.get(email_col, "") or "").strip() if email_col else "",
+                        })
+
+                    if not preview_rows:
+                        st.warning("No valid rows found in the file.")
+                    else:
+                        st.markdown(f"**{len(preview_rows)} contacts found** — preview:")
+                        st.dataframe(
+                            pd.DataFrame(preview_rows).head(5),
+                            use_container_width=True,
+                            hide_index=True,
+                        )
+                        if len(preview_rows) > 5:
+                            st.caption(f"…and {len(preview_rows) - 5} more")
+
+                        if st.button("Import contacts", type="primary", key="stk_confirm_import"):
+                            existing_keys = {
+                                (s.get("name", "").lower(), s.get("organisation", "").lower())
+                                for s in all_s
+                            }
+                            added = 0
+                            for p in preview_rows:
+                                key = (p["Name"].lower(), p["Organisation"].lower())
+                                if key not in existing_keys:
+                                    all_s.append({
+                                        "id":           uid(),
+                                        "name":         p["Name"],
+                                        "position":     p["Position"],
+                                        "organisation": p["Organisation"],
+                                        "phone":        p["Phone"],
+                                        "email":        p["Email"],
+                                        "date_added":   _TODAY,
+                                        "meeting_ids":  [],
+                                    })
+                                    existing_keys.add(key)
+                                    added += 1
+                            save_external_stakeholders(all_s)
+                            st.success(f"{added} new contact(s) imported.")
+                            st.rerun()
+
+            except Exception as exc:
+                st.error(f"Could not read file: {exc}")
+
     # ── Save changes button ──────────────────────────────────────────
     if st.button("Save changes", type="primary", key="stk_save_edits"):
         # Rebuild all_s from edited_df (excluding search-filtered-out records)
