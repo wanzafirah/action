@@ -203,7 +203,7 @@ def _is_trivial_transcript(text: str) -> bool:
 #input (meeting recap)
 def run_pipeline(transcript: str, metadata: dict | None = None) -> dict:
     """Analyse a transcript and return the normalised meeting brief."""
-    compact = compact_transcript_for_prompt((transcript or "").strip(), max_chars=2000)
+    compact = compact_transcript_for_prompt((transcript or "").strip(), max_chars=3500)
 
     # Guard: skip LLM entirely if transcript is too short / trivial
     if _is_trivial_transcript(compact):
@@ -223,7 +223,7 @@ def run_pipeline(transcript: str, metadata: dict | None = None) -> dict:
     )
 
     try:
-        raw = call_ollama(PIPELINE_SYSTEM, user_msg, max_tokens=450, num_ctx=3072, temperature=0.1)
+        raw = call_ollama(PIPELINE_SYSTEM, user_msg, max_tokens=1500, num_ctx=5120, temperature=0.1)
         try:
             result = extract_json(raw)
         except Exception:
