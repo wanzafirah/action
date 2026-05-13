@@ -208,10 +208,8 @@ def _get_all_active_meetings(meetings: list) -> list:
 # Upcoming Tasks — items due within the next 7 days only (not overdue)
 # ------------------------------------------------------------------
 def _render_upcoming(meetings: list) -> None:
-    """Show action items due within the next 7 days. Overdue items appear in the red panel above."""
-    from collections import defaultdict
+    """Show action items due within the next 7 days as a structured table."""
     from utils.helpers import days_left as _dl
-    from ui.components import action_card
 
     st.markdown("#### Upcoming Tasks")
     st.caption("Tasks with deadlines in the next 7 days.")
@@ -232,56 +230,99 @@ def _render_upcoming(meetings: list) -> None:
             deadline = normalize_value(a.get("deadline"), "")
             dl = _dl(deadline) if deadline and deadline not in ("None", "Not stated") else None
 
-            # Only include if deadline is between today and 7 days from now
             if dl is None or dl < 0 or dl > 7:
                 continue
 
             a_dept = normalize_value(a.get("department") or a.get("company"), "").strip()
             if a_dept in ("None", "Not stated", "TalentCorp", "Talent Corp", "TC", ""):
-                a_dept = m_dept if m_dept else ""
+                a_dept = m_dept if m_dept else "Unassigned"
+
+            owner = normalize_value(a.get("owner"), "Not stated")
 
             action_rows.append({
-                "action":       a,
-                "dept":         a_dept,
-                "meeting_date": m_date,
+                "task":          normalize_value(a.get("text"), "Untitled action"),
+                "dept":          a_dept or "Unassigned",
+                "owner":         owner,
                 "meeting_title": m_title,
-                "dl":           dl if dl is not None else 9999,
+                "deadline":      deadline,
+                "status":        status,
+                "dl":            dl,
             })
 
     if not action_rows:
         st.info("No tasks due in the next 7 days.")
         return
 
-    # Sort: overdue first, then soonest deadline
     action_rows.sort(key=lambda r: r["dl"])
 
-    # Group by department
-    dept_map: dict = defaultdict(list)
-    for row in action_rows:
-        dept_map[row["dept"]].append(row)
+    # ── Status badge colours ────────────────────────────────────────
+    STATUS_COLORS = {
+        "Pending":     ("#b45309", "#fef3c7"),
+        "In Progress": ("#1d4ed8", "#dbeafe"),
+    }
 
-    named_depts = sorted(k for k in dept_map if k)
+    # ── Table header ────────────────────────────────────────────────
+    header = (
+        "<table style='width:100%;border-collapse:collapse;font-size:0.82rem;margin-top:0.5rem'>"
+        "<thead><tr style='background:#eff6ff'>"
+        "<th style='padding:0.45rem 0.6rem;text-align:center;color:#1e3a8a;"
+        "font-weight:800;width:2.5rem'>#</th>"
+        "<th style='padding:0.45rem 0.6rem;text-align:left;color:#1e3a8a;font-weight:800'>DEPARTMENT</th>"
+        "<th style='padding:0.45rem 0.6rem;text-align:left;color:#1e3a8a;font-weight:800'>TASK</th>"
+        "<th style='padding:0.45rem 0.6rem;text-align:left;color:#1e3a8a;font-weight:800'>ASSIGNEE</th>"
+        "<th style='padding:0.45rem 0.6rem;text-align:left;color:#1e3a8a;font-weight:800'>MEETING</th>"
+        "<th style='padding:0.45rem 0.6rem;text-align:center;color:#1e3a8a;font-weight:800'>DEADLINE</th>"
+        "<th style='padding:0.45rem 0.6rem;text-align:center;color:#1e3a8a;font-weight:800'>STATUS</th>"
+        "</tr></thead><tbody>"
+    )
 
-    for dept in named_depts:
-        st.markdown(
-            f"<div style='font-size:0.82rem;font-weight:800;color:var(--brand-2);"
-            f"text-transform:uppercase;letter-spacing:0.06em;margin:0.9rem 0 0.25rem'>"
-            f"{dept}</div>",
-            unsafe_allow_html=True,
+    rows_html = ""
+    for i, r in enumerate(action_rows, 1):
+        bg = "#f8fafc" if i % 2 == 1 else "#ffffff"
+
+        # Deadline urgency pill
+        dl = r["dl"]
+        if dl == 0:
+            dl_color, dl_bg = "#92400e", "#fef3c7"
+            dl_label = "Today"
+        elif dl <= 2:
+            dl_color, dl_bg = "#92400e", "#fef3c7"
+            dl_label = f"{dl}d left"
+        elif dl <= 4:
+            dl_color, dl_bg = "#1d4ed8", "#dbeafe"
+            dl_label = f"{dl}d left"
+        else:
+            dl_color, dl_bg = "#166534", "#dcfce7"
+            dl_label = f"{dl}d left"
+
+        # Status pill
+        sc, sb = STATUS_COLORS.get(r["status"], ("#374151", "#f1f5f9"))
+
+        rows_html += (
+            f"<tr style='background:{bg};border-bottom:1px solid #e2e8f0'>"
+            f"<td style='padding:0.45rem 0.6rem;text-align:center;color:#64748b;font-weight:600'>{i}</td>"
+            f"<td style='padding:0.45rem 0.6rem;color:#374151;font-size:0.79rem'>{r['dept']}</td>"
+            f"<td style='padding:0.45rem 0.6rem;color:#111827;font-weight:600;max-width:260px'>{r['task']}</td>"
+            f"<td style='padding:0.45rem 0.6rem;color:#374151'>{r['owner']}</td>"
+            f"<td style='padding:0.45rem 0.6rem;color:#64748b;font-size:0.79rem'>{r['meeting_title']}</td>"
+            f"<td style='padding:0.45rem 0.6rem;text-align:center'>"
+            f"<span style='background:{dl_bg};color:{dl_color};padding:0.15rem 0.5rem;"
+            f"border-radius:999px;font-weight:700;font-size:0.78rem;white-space:nowrap'>"
+            f"{dl_label}</span></td>"
+            f"<td style='padding:0.45rem 0.6rem;text-align:center'>"
+            f"<span style='background:{sb};color:{sc};padding:0.15rem 0.5rem;"
+            f"border-radius:999px;font-weight:700;font-size:0.78rem;white-space:nowrap'>"
+            f"{r['status']}</span></td>"
+            f"</tr>"
         )
-        for row in dept_map[dept]:
-            action_card(row["action"], meeting_date=row["meeting_date"], meeting_title=row["meeting_title"])
 
-    if "" in dept_map:
-        if named_depts:
-            st.markdown(
-                "<div style='font-size:0.82rem;font-weight:800;color:var(--text-soft);"
-                "text-transform:uppercase;letter-spacing:0.06em;margin:0.9rem 0 0.25rem'>"
-                "Unassigned</div>",
-                unsafe_allow_html=True,
-            )
-        for row in dept_map[""]:
-            action_card(row["action"], meeting_date=row["meeting_date"], meeting_title=row["meeting_title"])
+    st.markdown(
+        f"<div style='background:#ffffff;border:1px solid #e2e8f0;border-radius:16px;"
+        f"padding:0.9rem 1rem;margin-bottom:1rem;overflow-x:auto'>"
+        f"{header}{rows_html}</tbody></table>"
+        f"</div>",
+        unsafe_allow_html=True,
+    )
 
 
 # ------------------------------------------------------------------
