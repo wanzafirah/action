@@ -91,7 +91,7 @@ def _render_kpis(meetings: list) -> None:
 # Overdue Alert Panel
 # ------------------------------------------------------------------
 def _render_overdue_alert(meetings: list) -> None:
-    """Red alert banner listing every overdue action item across all meetings."""
+    """Overdue action items rendered as a structured table grouped by department."""
     from utils.helpers import days_left as _dl
 
     overdue_rows = []
@@ -103,10 +103,13 @@ def _render_overdue_alert(meetings: list) -> None:
             deadline = normalize_value(a.get("deadline"), "")
             dl = _dl(deadline) if deadline and deadline not in ("None", "Not stated") else None
             days_over = abs(dl) if dl is not None and dl < 0 else 0
+            dept = normalize_value(a.get("department") or a.get("company"), "")
+            if dept in ("Not stated", "None", "TalentCorp", "Talent Corp", "TC", ""):
+                dept = normalize_value(m.get("deptName") or m.get("department"), "Unassigned")
             overdue_rows.append({
                 "text":      normalize_value(a.get("text"), "Untitled action"),
                 "owner":     normalize_value(a.get("owner"), "Not stated"),
-                "dept":      normalize_value(a.get("department") or a.get("company"), ""),
+                "dept":      dept or "Unassigned",
                 "days_over": days_over,
                 "mtitle":    m_title,
             })
@@ -116,25 +119,42 @@ def _render_overdue_alert(meetings: list) -> None:
 
     overdue_rows.sort(key=lambda r: -r["days_over"])
 
+    # ── Table header ────────────────────────────────────────────────
+    header = (
+        "<table style='width:100%;border-collapse:collapse;font-size:0.82rem'>"
+        "<thead><tr style='background:#fecaca'>"
+        "<th style='padding:0.45rem 0.6rem;text-align:center;color:#7f1d1d;"
+        "font-weight:800;width:2.5rem'>#</th>"
+        "<th style='padding:0.45rem 0.6rem;text-align:left;color:#7f1d1d;font-weight:800'>GROUP / DEPARTMENT</th>"
+        "<th style='padding:0.45rem 0.6rem;text-align:left;color:#7f1d1d;font-weight:800'>TASK</th>"
+        "<th style='padding:0.45rem 0.6rem;text-align:left;color:#7f1d1d;font-weight:800'>ASSIGNEE</th>"
+        "<th style='padding:0.45rem 0.6rem;text-align:center;color:#7f1d1d;font-weight:800'>OVERDUE</th>"
+        "</tr></thead><tbody>"
+    )
+
     rows_html = ""
-    for r in overdue_rows:
-        dept_part = f" &nbsp;|&nbsp; {r['dept']}" if r["dept"] and r["dept"] not in ("Not stated", "None") else ""
+    for i, r in enumerate(overdue_rows, 1):
+        bg = "#fff1f1" if i % 2 == 1 else "#ffffff"
+        urgency_color = "#7f1d1d" if r["days_over"] >= 14 else "#991b1b" if r["days_over"] >= 7 else "#b91c1c"
         rows_html += (
-            f"<div style='background:#fff1f1;border:1px solid #fca5a5;border-radius:10px;"
-            f"padding:0.5rem 0.8rem;margin-bottom:0.35rem'>"
-            f"<div style='font-weight:700;color:#7f1d1d;font-size:0.92rem'>{r['text']}</div>"
-            f"<div style='font-size:0.8rem;color:#991b1b;margin-top:0.15rem'>"
-            f"{r['owner']}{dept_part} &nbsp;|&nbsp; {r['mtitle']} "
-            f"&nbsp;|&nbsp; <strong>{r['days_over']}d overdue</strong>"
-            f"</div></div>"
+            f"<tr style='background:{bg};border-bottom:1px solid #fecaca'>"
+            f"<td style='padding:0.45rem 0.6rem;text-align:center;color:#991b1b;font-weight:700'>{i}</td>"
+            f"<td style='padding:0.45rem 0.6rem;color:#374151;font-size:0.8rem'>{r['dept']}</td>"
+            f"<td style='padding:0.45rem 0.6rem;color:#111827;font-weight:600'>{r['text']}</td>"
+            f"<td style='padding:0.45rem 0.6rem;color:#374151'>{r['owner']}</td>"
+            f"<td style='padding:0.45rem 0.6rem;text-align:center'>"
+            f"<span style='background:#fee2e2;color:{urgency_color};padding:0.15rem 0.55rem;"
+            f"border-radius:999px;font-weight:700;font-size:0.78rem;white-space:nowrap'>"
+            f"{r['days_over']}d overdue</span></td>"
+            f"</tr>"
         )
 
     st.markdown(
         f"<div style='background:#fef2f2;border:2px solid #ef4444;border-radius:16px;"
-        f"padding:0.9rem 1rem;margin-bottom:1rem'>"
+        f"padding:0.9rem 1rem;margin-bottom:1rem;overflow-x:auto'>"
         f"<div style='font-weight:800;color:#991b1b;font-size:1rem;margin-bottom:0.6rem'>"
         f"Overdue Actions — {len(overdue_rows)} item(s) need immediate attention</div>"
-        f"{rows_html}"
+        f"{header}{rows_html}</tbody></table>"
         f"</div>",
         unsafe_allow_html=True,
     )
