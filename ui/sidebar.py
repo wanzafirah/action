@@ -39,6 +39,7 @@ def render() -> None:
                 unsafe_allow_html=True,
             )
 
+        st.markdown("<div style='height:0.75rem'></div>", unsafe_allow_html=True)
         st.markdown(
             "<div class='sidebar-title'>AI-Powered Meeting Insight Generator and Action Tracker</div>",
             unsafe_allow_html=True,
