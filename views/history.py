@@ -12,33 +12,28 @@ def render() -> None:
     st.caption("Review past questions you asked, grouped by date and session.")
 
     records = st.session_state.get("history_records", [])
-    user_id = st.text_input(
-        "Your ID",
-        value=st.session_state.get("chat_user_id", ""),
-        key="history_user_id",
-    )
     search = st.text_input("Search", placeholder="Keyword in question or answer…")
 
-    if not user_id.strip():
-        st.info("Enter your ID to see your saved chat threads.")
+    if not records:
+        st.info("No chat history found.")
         return
 
-    user_records = [r for r in records if normalize_value(r.get("user_id"), "") == user_id.strip()]
+    filtered = list(records)
     if search.strip():
         needle = search.strip().lower()
-        user_records = [
-            r for r in user_records
+        filtered = [
+            r for r in filtered
             if needle in normalize_value(r.get("question"), "").lower()
             or needle in normalize_value(r.get("answer"), "").lower()
         ]
 
-    if not user_records:
-        st.info("No chat history found for this user.")
+    if not filtered:
+        st.info("No results match your search.")
         return
 
-    # Group by thread_key (user | date | session_id)
+    # Group by thread_key (date | session_id)
     threads: dict[str, list] = defaultdict(list)
-    for r in user_records:
+    for r in filtered:
         threads[normalize_value(r.get("thread_key"), "ungrouped")].append(r)
 
     for key, entries in sorted(threads.items(), key=lambda kv: kv[0], reverse=True):
