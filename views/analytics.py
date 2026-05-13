@@ -150,11 +150,14 @@ def render() -> None:
 
         if month_counts:
             sorted_keys = sorted(month_counts, key=lambda x: datetime.strptime(x, "%b %Y"))
-            fig = go.Figure(go.Bar(
+            fig = go.Figure(go.Scatter(
                 x=sorted_keys,
                 y=[month_counts[k] for k in sorted_keys],
-                marker_color=_C_BRAND,
-                marker_line_width=0,
+                mode="lines+markers",
+                line=dict(color=_C_BRAND, width=2.5),
+                marker=dict(color=_C_BRAND, size=8),
+                fill="tozeroy",
+                fillcolor="rgba(54,76,132,0.08)",
                 hovertemplate="%{x}: <b>%{y} meeting(s)</b><extra></extra>",
             ))
             fig.update_layout(**_chart_layout(height=260))
