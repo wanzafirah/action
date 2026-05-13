@@ -388,6 +388,11 @@ def action_card(
             st.error("Please upload proof of completion before marking this task as Done.")
         else:
             action["status"] = new_status
+            # Stamp completion date when marking Done; clear it if reverting
+            if new_status == "Done":
+                action["completed_at"] = date.today().isoformat()
+            elif "completed_at" in action and current == "Done":
+                action.pop("completed_at", None)
             changed = True
     if new_deadline != normalize_value(action.get("deadline"), "None"):
         action["deadline"] = new_deadline
