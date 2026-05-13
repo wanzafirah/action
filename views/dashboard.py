@@ -267,7 +267,7 @@ def _render_upcoming(meetings: list) -> None:
         "<thead><tr style='background:#eff6ff'>"
         "<th style='padding:0.45rem 0.6rem;text-align:center;color:#1e3a8a;"
         "font-weight:800;width:2.5rem'>#</th>"
-        "<th style='padding:0.45rem 0.6rem;text-align:left;color:#1e3a8a;font-weight:800'>DEPARTMENT</th>"
+        "<th style='padding:0.45rem 0.6rem;text-align:left;color:#1e3a8a;font-weight:800'>GROUP / DEPARTMENT</th>"
         "<th style='padding:0.45rem 0.6rem;text-align:left;color:#1e3a8a;font-weight:800'>TASK</th>"
         "<th style='padding:0.45rem 0.6rem;text-align:left;color:#1e3a8a;font-weight:800'>ASSIGNEE</th>"
         "<th style='padding:0.45rem 0.6rem;text-align:left;color:#1e3a8a;font-weight:800'>MEETING</th>"
