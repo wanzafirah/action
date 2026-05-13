@@ -8,11 +8,11 @@ import streamlit as st
 # Display label → internal page key mapping
 NAV_ITEMS = [
     ("Dashboard",      "Dashboard"),
+    ("Analytics",      "Analytics"),
     ("Action Tracker", "Tracker"),
     ("Companies",      "Companies"),
-    ("Chat History",   "History"),
     ("Stakeholders",   "Stakeholders"),
-    ("Analytics",      "Analytics"),
+    ("Chat History",   "History"),
 ]
 
 _LOGO_PATH = Path(__file__).parent.parent / "TC LOGO.png"
