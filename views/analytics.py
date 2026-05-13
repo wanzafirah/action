@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from collections import Counter, defaultdict
-from datetime import datetime
+from datetime import datetime, date
 
 import streamlit as st
 
@@ -301,6 +301,112 @@ def render() -> None:
         ))
         fig6.update_layout(**_chart_layout(height=240, show_legend=False))
         st.plotly_chart(fig6, use_container_width=True, config={"displayModeBar": False})
+
+    st.markdown("<div style='height:0.5rem'></div>", unsafe_allow_html=True)
+
+    # ── Row 4: Average days to complete ──────────────────────────────
+    # For each Done action: days = completed_at − meeting_date
+    # completed_at is stamped automatically when the user marks a task Done.
+    # Falls back to deadline if completed_at is not present (legacy data).
+    dept_days: dict[str, list[int]] = defaultdict(list)
+    all_day_values: list[int] = []
+
+    for m in meetings:
+        m_date_str = normalize_value(m.get("date"), "")
+        m_dept = normalize_value(m.get("deptName") or m.get("department"), "Unassigned").strip()
+        if not m_dept or m_dept in ("None", "Not stated", ""):
+            m_dept = "Unassigned"
+        try:
+            m_date_obj = datetime.strptime(m_date_str, "%Y-%m-%d").date()
+        except Exception:
+            continue
+
+        for a in (m.get("actions") or []):
+            if normalize_status(a) != "Done":
+                continue
+            # Prefer the actual completion timestamp; fall back to deadline for legacy records
+            end_str = normalize_value(a.get("completed_at") or a.get("deadline"), "").strip()
+            if not end_str or end_str in ("None", "Not stated", ""):
+                continue
+            try:
+                end_date = datetime.strptime(end_str, "%Y-%m-%d").date()
+                days = (end_date - m_date_obj).days
+                if days >= 0:
+                    dept = normalize_value(
+                        a.get("department") or a.get("company"), ""
+                    ).strip()
+                    if not dept or dept in ("None", "Not stated", ""):
+                        dept = m_dept
+                    dept_days[dept].append(days)
+                    all_day_values.append(days)
+            except Exception:
+                continue
+
+    overall_avg = round(sum(all_day_values) / len(all_day_values), 1) if all_day_values else None
+
+    col_g, col_h = st.columns([1, 2])
+
+    with col_g:
+        _chart_card(
+            "Avg. days to complete",
+            "From meeting date to Done — actual completion time",
+        )
+        if overall_avg is not None:
+            if overall_avg <= 7:
+                avg_color = "#166534"   # green — fast
+                avg_label = "Fast turnaround"
+            elif overall_avg <= 14:
+                avg_color = "#b45309"   # amber — moderate
+                avg_label = "Moderate turnaround"
+            else:
+                avg_color = "#991b1b"   # red — slow
+                avg_label = "Slow turnaround"
+
+            st.markdown(
+                f"<div style='text-align:center;padding:1.5rem 0'>"
+                f"<div style='font-size:3.5rem;font-weight:800;color:{avg_color};line-height:1'>"
+                f"{overall_avg}</div>"
+                f"<div style='font-size:1rem;color:#64748b;margin-top:0.3rem'>days on average</div>"
+                f"<div style='font-size:0.82rem;color:{avg_color};margin-top:0.4rem;"
+                f"font-weight:600'>{avg_label}</div>"
+                f"<div style='font-size:0.75rem;color:#94a3b8;margin-top:0.6rem'>"
+                f"Based on {len(all_day_values)} completed action(s)</div>"
+                f"</div>",
+                unsafe_allow_html=True,
+            )
+        else:
+            st.info("No completed actions with deadlines yet.")
+
+    with col_h:
+        _chart_card("Avg. days to complete — by department")
+        if dept_days:
+            dept_avg = {
+                d: round(sum(v) / len(v), 1)
+                for d, v in dept_days.items()
+                if v
+            }
+            # Sort ascending (fastest first)
+            sorted_dept = sorted(dept_avg.items(), key=lambda x: x[1])[-10:]
+            d_names  = [x[0].split(",")[0].strip()[:32] for x in sorted_dept]
+            d_values = [x[1] for x in sorted_dept]
+            bar_colors = [
+                _C_LIGHT_GREEN if v <= 7 else _C_ACCENT if v <= 14 else _C_RED
+                for v in d_values
+            ]
+            fig7 = go.Figure(go.Bar(
+                x=d_values, y=d_names,
+                orientation="h",
+                marker_color=bar_colors,
+                marker_line_width=0,
+                text=[f"{v}d" for v in d_values],
+                textposition="outside",
+                hovertemplate="<b>%{y}</b>: %{x} days avg<extra></extra>",
+            ))
+            fig7.update_layout(**_chart_layout(height=300))
+            fig7.update_xaxes(showgrid=False, tickfont=dict(size=11, color="#0f172a"))
+            st.plotly_chart(fig7, use_container_width=True, config={"displayModeBar": False})
+        else:
+            st.info("No department data available yet.")
 
 
 def _chart_layout(height: int = 280, show_legend: bool = True) -> dict:
