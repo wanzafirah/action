@@ -65,6 +65,26 @@ def _render_folders_view(meetings: list) -> None:
         if normalize_value(m.get("id") or m.get("activityId"), "")
     }
 
+    # ── Search bar ───────────────────────────────────────────────────
+    search_q = st.text_input(
+        "Search",
+        placeholder="Search by meeting title, department, assignee, or date…",
+        key="tracker_folder_search",
+    )
+    needle = search_q.strip().lower()
+
+    def _meeting_matches(m: dict) -> bool:
+        if not needle:
+            return True
+        title  = normalize_value(m.get("title"), "").lower()
+        dept   = normalize_value(m.get("deptName") or m.get("department"), "").lower()
+        date   = normalize_value(m.get("date"), "").lower()
+        owners = " ".join(
+            normalize_value(a.get("owner"), "").lower()
+            for a in (m.get("actions") or [])
+        )
+        return needle in title or needle in dept or needle in date or needle in owners
+
     # ── Create new folder ────────────────────────────────────────────
     with st.expander("Create new folder", expanded=False):
         col_name, col_btn = st.columns([3, 1])
@@ -94,6 +114,11 @@ def _render_folders_view(meetings: list) -> None:
     # ── Folder cards ─────────────────────────────────────────────────
     for folder_name, meeting_ids in folders.items():
         folder_meetings = [meeting_lookup[mid] for mid in meeting_ids if mid in meeting_lookup]
+        folder_meetings = [m for m in folder_meetings if _meeting_matches(m)]
+
+        # Skip folders with no matching meetings when searching
+        if needle and not folder_meetings:
+            continue
 
         # Badge counts
         n_overdue = sum(
@@ -156,6 +181,7 @@ def _render_folders_view(meetings: list) -> None:
     ungrouped = [
         m for m in meetings
         if normalize_value(m.get("id") or m.get("activityId"), "") not in assigned_ids
+        and _meeting_matches(m)
     ]
     if ungrouped:
         st.markdown(
