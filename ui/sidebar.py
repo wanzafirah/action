@@ -9,7 +9,6 @@ import streamlit as st
 NAV_ITEMS = [
     ("Dashboard",      "Dashboard"),
     ("Action Tracker", "Tracker"),
-    ("People Tracker", "People"),
     ("Companies",      "Companies"),
     ("Chat History",   "History"),
     ("Stakeholders",   "Stakeholders"),
