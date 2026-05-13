@@ -184,47 +184,7 @@ def render() -> None:
 
     st.markdown("<div style='height:0.5rem'></div>", unsafe_allow_html=True)
 
-    # ── Row 3: Category breakdown ─────────────────────────────────
-    col_e, col_f = st.columns(2)
-
-    with col_e:
-        _chart_card("Meetings by category")
-        cat_counts = Counter(
-            normalize_value(m.get("category"), "Uncategorised") for m in meetings
-        )
-        if cat_counts:
-            labels = list(cat_counts.keys())
-            values = list(cat_counts.values())
-            fig5 = go.Figure(go.Bar(
-                x=labels, y=values,
-                marker_color=_C_ACCENT,
-                marker_line_width=0,
-                text=values,
-                textposition="outside",
-                hovertemplate="<b>%{x}</b>: %{y}<extra></extra>",
-            ))
-            fig5.update_layout(**_chart_layout(height=240))
-            st.plotly_chart(fig5, use_container_width=True, config={"displayModeBar": False})
-
-    with col_f:
-        _chart_card("Follow-up status")
-        fu_yes = sum(1 for m in meetings if m.get("followUp"))
-        fu_no  = total_mtgs - fu_yes
-        fig6 = go.Figure(go.Pie(
-            labels=["Follow-up needed", "Closed"],
-            values=[fu_yes, fu_no],
-            marker_colors=[_C_ACCENT, _C_LIGHT_GREEN],
-            hole=0.55,
-            textinfo="percent+label",
-            textfont_size=12,
-            hovertemplate="<b>%{label}</b>: %{value}<extra></extra>",
-        ))
-        fig6.update_layout(**_chart_layout(height=240, show_legend=False))
-        st.plotly_chart(fig6, use_container_width=True, config={"displayModeBar": False})
-
-    st.markdown("<div style='height:0.5rem'></div>", unsafe_allow_html=True)
-
-    # ── Row 4: Average days to complete ──────────────────────────────
+    # ── Row 2: Average days to complete ──────────────────────────────
     # For each Done action: days = completed_at − meeting_date
     # completed_at is stamped automatically when the user marks a task Done.
     # Falls back to deadline if completed_at is not present (legacy data).
@@ -327,6 +287,46 @@ def render() -> None:
             st.plotly_chart(fig7, use_container_width=True, config={"displayModeBar": False})
         else:
             st.info("No department data available yet.")
+
+    st.markdown("<div style='height:0.5rem'></div>", unsafe_allow_html=True)
+
+    # ── Row 3: Meetings by category  +  Follow-up status ─────────────
+    col_e, col_f = st.columns(2)
+
+    with col_e:
+        _chart_card("Meetings by category", "Internal vs external breakdown")
+        cat_counts = Counter(
+            normalize_value(m.get("category"), "Uncategorised") for m in meetings
+        )
+        if cat_counts:
+            labels = list(cat_counts.keys())
+            values = list(cat_counts.values())
+            fig5 = go.Figure(go.Bar(
+                x=labels, y=values,
+                marker_color=_C_ACCENT,
+                marker_line_width=0,
+                text=values,
+                textposition="outside",
+                hovertemplate="<b>%{x}</b>: %{y}<extra></extra>",
+            ))
+            fig5.update_layout(**_chart_layout(height=240))
+            st.plotly_chart(fig5, use_container_width=True, config={"displayModeBar": False})
+
+    with col_f:
+        _chart_card("Follow-up status", "Meetings requiring follow-up action")
+        fu_yes = sum(1 for m in meetings if m.get("followUp"))
+        fu_no  = total_mtgs - fu_yes
+        fig6 = go.Figure(go.Pie(
+            labels=["Follow-up needed", "Closed"],
+            values=[fu_yes, fu_no],
+            marker_colors=[_C_ACCENT, _C_LIGHT_GREEN],
+            hole=0.55,
+            textinfo="percent+label",
+            textfont_size=12,
+            hovertemplate="<b>%{label}</b>: %{value}<extra></extra>",
+        ))
+        fig6.update_layout(**_chart_layout(height=240, show_legend=False))
+        st.plotly_chart(fig6, use_container_width=True, config={"displayModeBar": False})
 
 
 def _chart_layout(height: int = 280, show_legend: bool = True) -> dict:
