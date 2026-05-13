@@ -1,4 +1,7 @@
 """Sidebar navigation."""
+import base64
+from pathlib import Path
+
 import streamlit as st
 
 
@@ -13,9 +16,31 @@ NAV_ITEMS = [
     ("Analytics",      "Analytics"),
 ]
 
+_LOGO_PATH = Path(__file__).parent.parent / "TC LOGO.png"
+
+
+def _logo_base64() -> str | None:
+    """Return the TC logo as a base64 data URI, or None if file not found."""
+    try:
+        data = _LOGO_PATH.read_bytes()
+        return "data:image/png;base64," + base64.b64encode(data).decode()
+    except Exception:
+        return None
+
 
 def render() -> None:
     with st.sidebar:
+        # ── TC Logo ──────────────────────────────────────────────────
+        logo_src = _logo_base64()
+        if logo_src:
+            st.markdown(
+                f"<div style='display:flex;justify-content:center;"
+                f"padding:0.75rem 0 0.25rem'>"
+                f"<img src='{logo_src}' style='width:120px;object-fit:contain'/>"
+                f"</div>",
+                unsafe_allow_html=True,
+            )
+
         st.markdown(
             "<div class='sidebar-title'>AI-Powered Meeting Insight Generator and Action Tracker</div>",
             unsafe_allow_html=True,
