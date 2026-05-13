@@ -189,18 +189,9 @@ def _render_folders_view(meetings: list) -> None:
             "text-transform:uppercase;letter-spacing:0.05em;margin:1rem 0 0.4rem'>Ungrouped</div>",
             unsafe_allow_html=True,
         )
-        ungrouped_open_key = "ungrouped_open"
-        if st.button(
-            "Close ungrouped" if st.session_state.get(ungrouped_open_key) else f"Show {len(ungrouped)} ungrouped meetings",
-            key="btn_ungrouped",
-        ):
-            st.session_state[ungrouped_open_key] = not st.session_state.get(ungrouped_open_key, False)
-            st.rerun()
-
-        if st.session_state.get(ungrouped_open_key):
-            _render_folder_content(None, ungrouped, meetings, {
-                normalize_value(m.get("id") or m.get("activityId"), ""): m for m in meetings
-            })
+        _render_folder_content(None, ungrouped, meetings, {
+            normalize_value(m.get("id") or m.get("activityId"), ""): m for m in meetings
+        })
 
 
 def _render_folder_content(
