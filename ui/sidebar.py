@@ -34,9 +34,8 @@ def render() -> None:
         logo_src = _logo_base64()
         if logo_src:
             st.markdown(
-                f"<div style='display:flex;justify-content:center;"
-                f"padding:0.75rem 0 0.25rem'>"
-                f"<img src='{logo_src}' style='width:120px;object-fit:contain'/>"
+                f"<div class='sidebar-logo-wrap'>"
+                f"<img src='{logo_src}'/>"
                 f"</div>",
                 unsafe_allow_html=True,
             )
