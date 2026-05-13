@@ -66,10 +66,13 @@ _CSS = """
 /* Sidebar */
 section[data-testid="stSidebar"] {
     background: linear-gradient(180deg,
-        #ffffff 0%,
-        #dce8f5 18%,
-        #27425D 42%,
-        #0E1B48 70%,
+        #f0f5fb 0%,
+        #c8d9ec 15%,
+        #8aaec9 28%,
+        #4a7499 40%,
+        #27425D 55%,
+        #162f4a 72%,
+        #0E1B48 85%,
         #0E1F2F 100%);
     border-right: 1px solid rgba(255,255,255,0.10);
 }
@@ -77,25 +80,25 @@ section[data-testid="stSidebar"] {
     display: flex;
     justify-content: center;
     align-items: center;
-    padding: 1rem 0 0.75rem;
+    padding: 1rem 0 0.6rem;
 }
 .sidebar-logo-wrap img {
     width: 160px;
     object-fit: contain;
-    filter: drop-shadow(0 2px 6px rgba(0,0,0,0.12));
+    filter: drop-shadow(0 2px 6px rgba(0,0,0,0.10));
 }
 .sidebar-title {
-    margin: 0 0 1rem;
+    margin: 0 0 0.5rem;
     color: #0E1B48 !important;
-    font-size: 1.3rem;
+    font-size: 1.15rem;
     font-weight: 800;
-    text-align: center;
+    text-align: left;
 }
 .sidebar-subtitle {
-    margin: -0.7rem 0 1rem;
+    margin: 0 0 1rem;
     color: #27425D;
     font-size: 0.88rem;
-    text-align: center;
+    text-align: left;
 }
 section[data-testid="stSidebar"] .stButton > button {
     border-radius: 18px !important;
