@@ -92,13 +92,20 @@ section[data-testid="stSidebar"] {
     color: #0E1B48 !important;
     font-size: 1.15rem;
     font-weight: 800;
-    text-align: left;
+    text-align: left !important;
+    display: block;
+    width: 100%;
 }
 .sidebar-subtitle {
     margin: 0 0 1rem;
     color: #27425D;
     font-size: 0.88rem;
-    text-align: left;
+    text-align: left !important;
+    display: block;
+    width: 100%;
+}
+section[data-testid="stSidebar"] .stMarkdown {
+    text-align: left !important;
 }
 section[data-testid="stSidebar"] .stButton > button {
     border-radius: 18px !important;
