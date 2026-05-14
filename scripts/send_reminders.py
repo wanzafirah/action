@@ -121,7 +121,7 @@ def _build_body(owner: str, tasks: list[dict]) -> str:
     lines = [
         f"Dear {owner},",
         "",
-        "This is a reminder from MeetIQ. You have the following action items",
+        "This is a reminder from Promptly. You have the following action items",
         f"due within the next {DEADLINE_WINDOW_DAYS} days:",
         "",
     ]
@@ -146,7 +146,7 @@ def _build_body(owner: str, tasks: list[dict]) -> str:
     lines += [
         "Please ensure these tasks are completed on time.",
         "",
-        f"Sent by MeetIQ  ·  {today_str}",
+        f"Sent by Promptly  ·  {today_str}",
     ]
     return "\n".join(lines)
 
@@ -164,7 +164,7 @@ def main() -> None:
         print(f"[error] Missing environment variables: {', '.join(missing)}")
         sys.exit(1)
 
-    print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M')}] MeetIQ daily reminder starting...")
+    print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M')}] Promptly daily reminder starting...")
 
     # ── 1. Load staff email lookup ───────────────────────────────────────────
     print("Loading staff emails...")
@@ -267,7 +267,7 @@ def main() -> None:
 
         for owner, tasks in owner_tasks.items():
             email = email_map[owner.lower()]
-            subject = f"[MeetIQ] Reminder: {len(tasks)} task(s) due soon — {m_title}"
+            subject = f"[Promptly] Reminder: {len(tasks)} task(s) due soon — {m_title}"
             body = _build_body(owner, tasks)
 
             print(f"  Sending to {owner} <{email}> — {len(tasks)} task(s)...")
