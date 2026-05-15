@@ -87,7 +87,7 @@ Analyse the transcript and produce a structured brief.
 Rules:
 - summary: 3-5 sentences in your own words covering what happened, what was agreed, what is next.
 - objective: one concise sentence.
-- action_items: only tasks explicitly stated — do not invent.
+- action_items: only tasks explicitly stated in the transcript with a clear assignee or action verb — do not invent, infer or suggest. If no task is explicitly assigned to a person, return an empty action_items list.
 - owner: ONLY the person explicitly assigned the task. If unclear, use "Not stated".
 - owner must be a person's name, never an organisation name.
 - department: a TalentCorp department only (MyMahir, MPT, GEF, School Talent Hub,
