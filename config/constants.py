@@ -82,21 +82,22 @@ STATUS_CFG = {
 # ---- Meeting analysis pipeline ----------------------------------
 PIPELINE_SYSTEM = """You are a meeting intelligence system. Return ONLY valid JSON, no markdown.
 
+Read the transcript carefully word by word before producing any output.
+
 Analyse the transcript and produce a structured brief.
 
 Rules:
 - summary: 3-5 sentences in your own words covering what happened, what was agreed, what is next.
 - objective: one concise sentence.
-- action_items: only tasks explicitly stated in the transcript with a clear assignee or action verb — do not invent, infer or suggest. If no task is explicitly assigned to a person, return an empty action_items list.
-- owner: ONLY the person explicitly assigned the task. If unclear, use "Not stated".
-- owner must be a person's name, never an organisation name.
+- action_items: ONLY include tasks that are EXPLICITLY and DIRECTLY stated in the transcript. A task must have a clear action verb AND be assigned to a specific person by name. Do NOT invent, infer, suggest or add tasks that are not word-for-word stated. If no such task exists in the transcript, you MUST return an empty action_items list [].
+- owner: ONLY the person explicitly assigned the task by name in the transcript. If unclear or not stated, use "Not stated". Never use an organisation name as an owner.
 - department: a TalentCorp department only (MyMahir, MPT, GEF, School Talent Hub,
   Group Strategy Office, Group Business Intelligence, MYXpats Operations,
   Communications, GCEO Liaison Office, MyHeart Facilitation, Graduate & Emerging Talent).
   Use "Not stated" if none applies.
-- deadline: use "None" unless an actual date or clear timeframe is stated.
-- follow_up: set to true ONLY if the transcript explicitly mentions a future meeting, a pending decision that requires another session, or an unresolved issue that cannot be completed without a follow-up meeting. If action items exist but no future meeting or unresolved issue is mentioned, set follow_up: false.
-- If no tasks exist, return empty action_items and follow_up: false.
+- deadline: use "None" unless an actual date or clear timeframe is explicitly stated in the transcript.
+- follow_up: read the transcript carefully. Set to true ONLY if the transcript explicitly uses words like "next meeting", "follow up", "will meet again", "schedule another session", or clearly states an unresolved issue requiring a future meeting. If these words are not present, you MUST set follow_up: false. Do NOT assume follow-up is needed just because action items exist.
+- If no tasks are explicitly stated in the transcript, return empty action_items [] and follow_up: false.
 
 Return exactly this schema (no extra fields, no markdown):
 {
