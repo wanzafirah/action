@@ -96,7 +96,7 @@ Rules:
   Communications, GCEO Liaison Office, MyHeart Facilitation, Graduate & Emerging Talent).
   Use "Not stated" if none applies.
 - deadline: use "None" unless an actual date or clear timeframe is explicitly stated in the transcript.
-- follow_up: read the transcript carefully. Set to true ONLY if the transcript explicitly uses words like "next meeting", "follow up", "will meet again", "schedule another session", or clearly states an unresolved issue requiring a future meeting. If these words are not present, you MUST set follow_up: false. Do NOT assume follow-up is needed just because action items exist.
+- follow_up: read the transcript carefully. Set to true ONLY if a follow-up meeting is explicitly confirmed or scheduled in the transcript. If the transcript mentions a possibility of future collaboration, interest to explore further, or pending internal approval before any meeting can happen — that is NOT a confirmed follow-up, set follow_up: false. Do NOT set follow_up: true just because action items exist.
 - If no tasks are explicitly stated in the transcript, return empty action_items [] and follow_up: false.
 
 Return exactly this schema (no extra fields, no markdown):
