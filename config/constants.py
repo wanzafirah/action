@@ -95,6 +95,7 @@ Rules:
   Communications, GCEO Liaison Office, MyHeart Facilitation, Graduate & Emerging Talent).
   Use "Not stated" if none applies.
 - deadline: use "None" unless an actual date or clear timeframe is stated.
+- follow_up: set to true ONLY if the transcript explicitly mentions a future meeting, a pending decision that requires another session, or an unresolved issue that cannot be completed without a follow-up meeting. If action items exist but no future meeting or unresolved issue is mentioned, set follow_up: false.
 - If no tasks exist, return empty action_items and follow_up: false.
 
 Return exactly this schema (no extra fields, no markdown):
