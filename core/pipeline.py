@@ -175,10 +175,8 @@ def normalize_result(result: dict, transcript: str, metadata: dict | None = None
     merged["classification"]["decisions_count"] = len(merged["key_decisions"])
     merged["classification"]["discussion_points_count"] = len(merged["discussion_points"])
 
-    # If no action items exist, follow_up is always false.
-    # If action items exist, respect what Ollama decided based on the transcript.
-    if not cleaned_actions:
-        merged["follow_up"] = False
+    # follow_up is true only when there are real extracted action items.
+    merged["follow_up"] = bool(cleaned_actions)
 
     return merged
 
