@@ -375,11 +375,11 @@ def _render_live_transcription(lang_choice: str, dg_key: str, rtc_config: dict) 
 
         col_refresh, col_use = st.columns(2)
         with col_refresh:
-            if st.button("🔄 Refresh transcript", key="cap_live_refresh"):
+            if st.button("Refresh transcript", key="cap_live_refresh"):
                 st.rerun()
         with col_use:
             current_final = proc.store.plain_text() if proc else ""
-            if current_final and st.button("✅ Use current transcript", key="cap_live_use"):
+            if current_final and st.button("Use current transcript", key="cap_live_use"):
                 st.session_state.cap_transcript = current_final
                 st.session_state.cap_transcript_original = current_final
                 st.session_state["cap_transcript_ver"] = (
@@ -785,7 +785,15 @@ def render() -> None:
             st.info("No action items were extracted from this transcript.")
         for idx, a in enumerate(actions):
             a.setdefault("id", f"act-{uid()}-{idx}")
-            action_card(a, editable=True, persist_callback=lambda: None)
+            col_card, col_del = st.columns([11, 1])
+            with col_card:
+                action_card(a, editable=True, persist_callback=lambda: None)
+            with col_del:
+                st.markdown("<div style='padding-top:18px'>", unsafe_allow_html=True)
+                if st.button("🗑️", key=f"del_action_{idx}", help="Delete this action item"):
+                    result["action_items"].pop(idx)
+                    st.rerun()
+                st.markdown("</div>", unsafe_allow_html=True)
 
         #download PDF
         if "cap_pdf_bytes" not in st.session_state:
