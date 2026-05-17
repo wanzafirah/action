@@ -238,14 +238,10 @@ def transcribe_audio_file(
     tmp.close()
 
     try:
-        # Both modes pin to Malay. Whisper handles code-switched English-in-Malay
-        # natively, but English-pinned Whisper has no Malay phonemes and
-        # produces garbage for Malay names. Differentiate only via the prompt
-        # so Whisper biases towards the right register.
         task = "transcribe"
-        language = "ms"
 
         if lang_choice == "Bahasa Melayu":
+            language = "ms"
             initial_prompt = (
                 "Ini adalah mesyuarat dalaman TalentCorp Malaysia dalam Bahasa Malaysia. "
                 "Penceramah membincangkan kerjasama dengan Pusat Kaunseling Kerjaya, "
@@ -256,20 +252,16 @@ def transcribe_audio_file(
                 "MyMahir Penyelesaian Tenaga Kerja, Pengurusan Bakat Kumpulan."
             )
         else:
-            # English / Manglish — same Malay engine, prompt biases toward
-            # the typical TalentCorp Manglish meeting register.
+            # English — use English Whisper engine
+            language = "en"
             initial_prompt = (
-                "Mesyuarat TalentCorp Malaysia dalam Manglish, campuran Bahasa "
-                "Malaysia dan English. Penceramah membincangkan kerjasama dengan "
-                "Pusat Kaunseling Kerjaya, Alumni Universiti Malaysia Pahang "
-                "Al-Sultan Abdullah, Pertahanan, Politeknik. Penceramah Sherizan, "
-                "Hazman, Mei Ling, Aisyah, Farhan, Lim Jing Rou, Kavitha. "
-                "Brand: TalentCorp, MyMahir, MyNext, MyXpats, MyHeart, MyWira, "
-                "GEF, MPT, GCEO, Supabase. Departments: Group Strategy Office, "
-                "School Talent Hub, MyMahir Workforce Solutions, Group Business "
-                "Intelligence, Graduates Emerging Talent, MyHeart Facilitation, "
-                "MYXpats Operations, GCEO Liaison Office. Universities: UMP, "
-                "UPNM, UPM, UTM, UiTM, UM, UKM, USM, UNITEN, MMU, APU, UCSI, UTAR."
+                "This is a TalentCorp Malaysia internal meeting conducted in English. "
+                "Speakers discuss collaboration, programmes, and talent development. "
+                "Names: Sherizan, Hazman, Mei Ling, Aisyah, Farhan, Lim Jing Rou, Kavitha. "
+                "Brands: TalentCorp, MyMahir, MyNext, MyXpats, MyHeart, MyWira, GEF, MPT. "
+                "Departments: Group Strategy Office, School Talent Hub, MyMahir Workforce Solutions, "
+                "Group Business Intelligence, Graduates Emerging Talent. "
+                "Universities: UMP, UPNM, UPM, UTM, UiTM, UM, UKM, USM, UNITEN, MMU, APU, UCSI, UTAR."
             )
 
         segments, _info = model.transcribe(
