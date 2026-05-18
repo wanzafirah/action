@@ -328,18 +328,13 @@ def extract_text_from_document(uploaded_file) -> str:
         doc = Document(uploaded_file)
         return "\n".join(p.text.strip() for p in doc.paragraphs if p.text.strip())
 
-    if name.endswith((".xlsx", ".xls")):
-        sheets = pd.read_excel(uploaded_file, sheet_name=None)
-        chunks = []
-        for sheet_name, frame in sheets.items():
-            chunks.append(f"Sheet: {sheet_name}")
-            chunks.append(_dataframe_to_text(frame))
-        return "\n\n".join(c for c in chunks if c.strip())
+    if name.endswith(".txt"):
+        if hasattr(uploaded_file, "read"):
+            raw = uploaded_file.read()
+            return raw.decode("utf-8", errors="replace").strip()
+        return ""
 
-    if name.endswith(".csv"):
-        return _dataframe_to_text(pd.read_csv(uploaded_file))
-
-    raise RuntimeError("Unsupported document format. Use PDF, DOCX, XLSX, XLS, or CSV.")
+    raise RuntimeError("Unsupported document format. Use PDF, DOCX, or TXT.")
 
 
 def append_document_to_transcript(current: str, extracted: str) -> str:
