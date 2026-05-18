@@ -223,7 +223,14 @@ def run_pipeline(transcript: str, metadata: dict | None = None) -> dict:
     )
 
     try:
+        import time as _time
+        _t_start = _time.time()
         raw = call_ollama(PIPELINE_SYSTEM, user_msg, max_tokens=1500, num_ctx=5120, temperature=0.1)
+        _t_gen = _time.time() - _t_start
+        _n_tokens = len(raw.split())
+        _speed = _n_tokens / _t_gen if _t_gen > 0 else 0
+        print(f"[LLM] Generation speed: {_speed:.2f} tokens/sec "
+              f"({_n_tokens} tokens in {_t_gen:.2f}s)")
         try:
             result = extract_json(raw)
         except Exception:
