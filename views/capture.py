@@ -24,7 +24,7 @@ from utils.tc_staff import get_tc_names, render_upload_widget
 
 
 SUPPORTED_AUDIO = ["mp3", "m4a", "wav", "mp4", "mpeg", "mpga", "webm"]
-SUPPORTED_DOCS = ["pdf", "docx", "xlsx", "xls", "csv"]
+SUPPORTED_DOCS = ["pdf", "docx"]
 
 
 def _render_company_history(result: dict, meetings: list) -> None:  # noqa: ARG001
