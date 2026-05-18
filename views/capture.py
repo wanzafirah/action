@@ -23,8 +23,8 @@ from utils.helpers import generate_activity_id, normalize_value, uid
 from utils.tc_staff import get_tc_names, render_upload_widget
 
 
-SUPPORTED_AUDIO = ["mp3", "m4a", "wav", "mp4", "mpeg", "mpga", "webm"]
-SUPPORTED_DOCS = ["pdf", "docx"]
+SUPPORTED_AUDIO = ["mp3", "wav"]
+SUPPORTED_DOCS = ["pdf", "docx", "txt"]
 
 
 def _render_company_history(result: dict, meetings: list) -> None:  # noqa: ARG001
@@ -427,107 +427,6 @@ def render() -> None:
     st.markdown("## Capture a Meeting")
     st.caption("Record, upload or paste your transcript to generate a structured brief.")
 
-    # ----- Bulk Excel Import -----
-    with st.expander("📥 Bulk import from Excel", expanded=False):
-        st.caption(
-            "Upload an Excel file where each row contains one meeting recap. "
-            "Each row will be processed individually and saved as a separate meeting record."
-        )
-        bulk_col1, bulk_col2 = st.columns(2)
-        with bulk_col1:
-            bulk_category = st.selectbox("Category", ACTIVITY_CATEGORY_OPTIONS, key="bulk_category")
-            bulk_date = st.date_input("Meeting date", value=date.today(), key="bulk_date")
-        with bulk_col2:
-            bulk_dept_opts = DEFAULT_DEPARTMENTS
-            bulk_depts = st.multiselect("Departments involved", bulk_dept_opts, key="bulk_depts")
-
-        bulk_file = st.file_uploader(
-            "Upload Excel file (.xlsx)",
-            type=["xlsx", "xls"],
-            key="bulk_excel_upload",
-        )
-
-        if bulk_file and st.button("Process all rows", key="bulk_process", type="primary"):
-            try:
-                import openpyxl as _xl
-                wb = _xl.load_workbook(bulk_file, read_only=True, data_only=True)
-                ws = wb.active
-                # Collect all non-empty rows
-                recaps = []
-                for row in ws.iter_rows(values_only=True):
-                    cell = row[0] if row else None
-                    if cell and str(cell).strip():
-                        recaps.append(str(cell).strip())
-
-                if not recaps:
-                    st.warning("No recap text found in the Excel file.")
-                else:
-                    st.info(f"Found {len(recaps)} meeting recap(s). Processing…")
-                    progress = st.progress(0)
-                    saved_count = 0
-                    errors = []
-
-                    for idx, recap_text in enumerate(recaps):
-                        try:
-                            import json as _json
-                            meta = {
-                                "Title": f"Imported Meeting {idx + 1}",
-                                "Category": bulk_category,
-                                "Activity Type": "Meeting",
-                                "Organization Type": "",
-                                "Departments": ", ".join(bulk_depts),
-                                "Report By": "",
-                                "TC Members": "",
-                                "Meeting Date": bulk_date.isoformat(),
-                                "Activity ID": generate_activity_id(
-                                    bulk_category, bulk_date, st.session_state.get("meetings", [])
-                                ),
-                            }
-                            result = run_pipeline(recap_text, meta)
-
-                            # Build meeting record
-                            actions = [
-                                {**a, "id": uid()}
-                                for a in (result.get("action_items") or [])
-                                if isinstance(a, dict)
-                            ]
-                            meeting_record = {
-                                "id":                uid(),
-                                "title":             result.get("title") or meta["Title"],
-                                "date":              meta["Meeting Date"],
-                                "category":          bulk_category,
-                                "summary":           result.get("summary", ""),
-                                "objective":         result.get("objective", ""),
-                                "outcome":           result.get("outcome", ""),
-                                "follow_up":         result.get("follow_up", False),
-                                "follow_up_reason":  result.get("follow_up_reason", ""),
-                                "transcript":        recap_text,
-                                "transcript_original": recap_text,
-                                "recap_original":    _json.dumps(result, ensure_ascii=False),
-                                "department":        ", ".join(bulk_depts),
-                                "activity_id":       meta["Activity ID"],
-                                "stakeholders":      "",
-                                "actions":           actions,
-                                "folder":            None,
-                                "user_id":           "",
-                            }
-                            save_meeting(meeting_record)
-                            st.session_state.setdefault("meetings", []).append(meeting_record)
-                            saved_count += 1
-                        except Exception as row_exc:
-                            errors.append(f"Row {idx + 1}: {row_exc}")
-
-                        progress.progress((idx + 1) / len(recaps))
-
-                    if saved_count:
-                        st.success(f"✅ {saved_count} meeting(s) imported and saved successfully.")
-                    if errors:
-                        for e in errors:
-                            st.warning(e)
-
-            except Exception as exc:
-                st.error(f"Failed to read Excel file: {exc}")
-
     # ----- Activity metadata -----
     st.markdown("### Activity details")
     col_a, col_b = st.columns(2)
@@ -732,7 +631,7 @@ def render() -> None:
             "Audio file",
             type=SUPPORTED_AUDIO,
             key="cap_audio_upload",
-            help="Supported formats: mp3, m4a, wav, mp4, webm",
+            help="Supported formats: mp3, wav",
         )
 
     elif mode == "Record meeting audio":
