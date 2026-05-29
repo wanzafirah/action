@@ -65,36 +65,43 @@ _CSS = """
 
 /* Sidebar */
 section[data-testid="stSidebar"] {
-    background: linear-gradient(180deg,
-        #ffffff 0%,
-        #dde8f4 12%,
-        #aec8e4 25%,
-        #6a9dbf 38%,
-        #3d6f96 50%,
-        #27425D 63%,
-        #162f4a 78%,
-        #0E1B48 90%,
-        #0E1F2F 100%);
-    border-right: 1px solid rgba(255,255,255,0.10);
+    background: linear-gradient(160deg,
+        #e8f0f8 0%,
+        #c5d8ed 20%,
+        #8fb4d4 38%,
+        #5a8db5 52%,
+        #2e6491 64%,
+        #1a4570 76%,
+        #0f2d52 88%,
+        #0E1B48 100%);
+    border-right: 1px solid rgba(255,255,255,0.12);
 }
 .sidebar-title {
     margin: 0 0 1rem;
     color: #0E1B48 !important;
     font-size: 1.45rem;
     font-weight: 800;
+    text-shadow: none;
 }
 .sidebar-subtitle {
     margin: -0.7rem 0 1rem;
-    color: #27425D;
+    color: #2e5070;
     font-size: 0.88rem;
 }
 section[data-testid="stSidebar"] .stButton > button {
-    border-radius: 18px !important;
+    border-radius: 14px !important;
     min-height: 3rem;
-    border: 0 !important;
-    font-weight: 700 !important;
-    background: rgba(135,167,208,0.18) !important;
+    border: 1px solid rgba(255,255,255,0.18) !important;
+    font-weight: 600 !important;
+    background: rgba(255,255,255,0.15) !important;
     color: #ffffff !important;
+    backdrop-filter: blur(4px);
+    transition: background 0.2s ease, border 0.2s ease;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.25);
+}
+section[data-testid="stSidebar"] .stButton > button:hover {
+    background: rgba(255,255,255,0.28) !important;
+    border: 1px solid rgba(255,255,255,0.35) !important;
 }
 
 /* Cards shared across pages */
