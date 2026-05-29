@@ -65,18 +65,27 @@ _CSS = """
 
 /* Sidebar */
 section[data-testid="stSidebar"] {
-    background: linear-gradient(180deg, #27425D 0%, #0E1B48 52%, #0E1F2F 100%);
+    background: linear-gradient(180deg,
+        #ffffff 0%,
+        #dde8f4 12%,
+        #aec8e4 25%,
+        #6a9dbf 38%,
+        #3d6f96 50%,
+        #27425D 63%,
+        #162f4a 78%,
+        #0E1B48 90%,
+        #0E1F2F 100%);
     border-right: 1px solid rgba(255,255,255,0.10);
 }
 .sidebar-title {
     margin: 0 0 1rem;
-    color: #ffffff !important;
+    color: #0E1B48 !important;
     font-size: 1.45rem;
     font-weight: 800;
 }
 .sidebar-subtitle {
     margin: -0.7rem 0 1rem;
-    color: rgba(255,255,255,0.78);
+    color: #27425D;
     font-size: 0.88rem;
 }
 section[data-testid="stSidebar"] .stButton > button {
