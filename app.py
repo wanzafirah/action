@@ -15,6 +15,7 @@ st.set_page_config(
     page_title="AI-Powered Meeting Insight Generator and Action Tracker",
     page_icon="",
     layout="wide",
+    initial_sidebar_state="expanded",   # ← forces sidebar open on every load
 )
 inject_css()
 
