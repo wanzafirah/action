@@ -64,6 +64,13 @@ _CSS = """
 }
 
 /* Sidebar */
+section[data-testid="stSidebar"],
+section[data-testid="stSidebar"] > div:first-child {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    z-index: 999 !important;
+}
 section[data-testid="stSidebar"] {
     background: linear-gradient(180deg,
         #f0f5fb 0%,
@@ -76,6 +83,7 @@ section[data-testid="stSidebar"] {
         #0E1F2F 100%);
     border-right: 1px solid rgba(255,255,255,0.10);
 }
+[data-testid="stSidebarNav"] { display: none !important; }
 .sidebar-logo-wrap {
     display: flex;
     justify-content: center;
@@ -662,9 +670,6 @@ h2, h3, h4 { color: var(--text) !important; letter-spacing: -0.01em; }
     .dashboard-shell { grid-template-columns: 1fr; }
 }
 </style>
-section[data-testid="stSidebar"] {
-    z-index: 999 !important;
-}
 """
 
 
