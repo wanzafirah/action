@@ -41,7 +41,7 @@ def render() -> None:
 
         st.markdown("<div style='height:1.5rem'></div>", unsafe_allow_html=True)
         st.markdown(
-            "<div class='sidebar-title'>AI-Powered Meeting Insight Generator and Action Tracker</div>",
+            "<div class='sidebar-title'>Promptly</div>",
             unsafe_allow_html=True,
         )
         st.markdown(
