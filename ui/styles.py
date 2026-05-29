@@ -34,7 +34,7 @@ _CSS = """
 }
 .block-container {
     padding: 1.25rem 1.5rem 2rem;
-    margin: 1rem 1rem 1rem 0;
+    margin: 1rem auto;
     max-width: 1380px;
     background: linear-gradient(180deg, var(--surface) 0%, #fcfbfe 100%);
     border-radius: 28px;
@@ -64,56 +64,20 @@ _CSS = """
 }
 
 /* Sidebar */
-section[data-testid="stSidebar"],
-section[data-testid="stSidebar"] > div:first-child {
-    display: block !important;
-    visibility: visible !important;
-    opacity: 1 !important;
-    z-index: 999 !important;
-}
 section[data-testid="stSidebar"] {
-    background: linear-gradient(180deg,
-        #f0f5fb 0%,
-        #c8d9ec 15%,
-        #8aaec9 28%,
-        #4a7499 40%,
-        #27425D 55%,
-        #162f4a 72%,
-        #0E1B48 85%,
-        #0E1F2F 100%);
+    background: linear-gradient(180deg, #27425D 0%, #0E1B48 52%, #0E1F2F 100%);
     border-right: 1px solid rgba(255,255,255,0.10);
 }
-[data-testid="stSidebarNav"] { display: none !important; }
-.sidebar-logo-wrap {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    padding: 1rem 0 0.6rem;
-}
-.sidebar-logo-wrap img {
-    width: 220px;
-    object-fit: contain;
-    filter: drop-shadow(0 2px 6px rgba(0,0,0,0.10));
-}
 .sidebar-title {
-    margin: 0 0 0.5rem;
-    color: #0E1B48 !important;
-    font-size: 1.15rem;
+    margin: 0 0 1rem;
+    color: #ffffff !important;
+    font-size: 1.45rem;
     font-weight: 800;
-    text-align: left !important;
-    display: block;
-    width: 100%;
 }
 .sidebar-subtitle {
-    margin: 0 0 1rem;
-    color: #27425D;
+    margin: -0.7rem 0 1rem;
+    color: rgba(255,255,255,0.78);
     font-size: 0.88rem;
-    text-align: left !important;
-    display: block;
-    width: 100%;
-}
-section[data-testid="stSidebar"] .stMarkdown {
-    text-align: left !important;
 }
 section[data-testid="stSidebar"] .stButton > button {
     border-radius: 18px !important;
