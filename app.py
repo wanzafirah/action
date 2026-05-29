@@ -1,10 +1,13 @@
 """MeetIQ — AI meeting insight generator and action tracker.
+
 Entry point: only does Streamlit setup + page routing. All real work lives
 inside the page modules under `pages/`.
+
 Run locally:
     streamlit run app.py
 """
 import streamlit as st
+
 from core.database import load_all
 from ui import sidebar
 from views import analytics, capture, companies, dashboard, history, people, stakeholders, tracker
@@ -15,11 +18,11 @@ st.set_page_config(
     page_title="AI-Powered Meeting Insight Generator and Action Tracker",
     page_icon="",
     layout="wide",
-    initial_sidebar_state="expanded",   # ← forces sidebar open on every load
+    initial_sidebar_state="expanded",
 )
 inject_css()
 
-# Hide Streamlit's toolbar and default sidebar nav; force custom sidebar visible
+# Hide Streamlit's toolbar and default sidebar nav
 st.markdown("""
 <style>
 [data-testid="stToolbar"]    { display: none !important; }
