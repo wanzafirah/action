@@ -662,6 +662,9 @@ h2, h3, h4 { color: var(--text) !important; letter-spacing: -0.01em; }
     .dashboard-shell { grid-template-columns: 1fr; }
 }
 </style>
+section[data-testid="stSidebar"] {
+    z-index: 999 !important;
+}
 """
 
 
