@@ -34,7 +34,7 @@ _CSS = """
 }
 .block-container {
     padding: 1.25rem 1.5rem 2rem;
-    margin: 1rem auto;
+    margin: 1rem 1rem 1rem 0;
     max-width: 1380px;
     background: linear-gradient(180deg, var(--surface) 0%, #fcfbfe 100%);
     border-radius: 28px;
