@@ -397,9 +397,17 @@ def _render_meeting(meeting: dict, key_prefix: str = "") -> None:
     )
 
     orig_t = meeting.get("transcript_original", "") or meeting.get("transcript", "")
+    m_id = normalize_value(meeting.get("id") or meeting.get("activityId"), "x")
     if orig_t:
-        with st.expander("View original content", expanded=False):
-            m_id = normalize_value(meeting.get("id") or meeting.get("activityId"), "x")
+        toggle_key = f"{key_prefix}show_transcript_{m_id}"
+        is_open = st.session_state.get(toggle_key, False)
+        if st.button(
+            "Hide original content" if is_open else "View original content",
+            key=f"{key_prefix}btn_orig_{m_id}",
+        ):
+            st.session_state[toggle_key] = not is_open
+            st.rerun()
+        if st.session_state.get(toggle_key):
             st.text_area(
                 "Original transcript",
                 value=orig_t,
